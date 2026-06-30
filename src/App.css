@@ -1,0 +1,662 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Host+Grotesk:ital,wght@0,300..800;1,300..800&display=swap");
+
+:root {
+  --base-100: #fcf9f0;
+  --base-200: #141414;
+}
+
+* {
+  margin: 0;
+  /* padding: 0; */
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--base-100);
+  color: var(--base-200);
+}
+
+img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+
+h1 {
+  text-transform: uppercase;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(3rem, 5vw, 7rem);
+  font-weight: 900;
+  line-height: 0.8;
+}
+
+h2 {
+  color: var(--base-200);
+  font-family: "Host Grotesk", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 750;
+  line-height: 0.9;
+}
+
+h3 {
+  color: var(--base-200);
+  font-family: "Host Grotesk", sans-serif;
+}
+
+h4 {
+  color: var(--base-200);
+  font-family: "Host Grotesk", sans-serif;
+  font-size: 1rem;
+  font-weight: 450;
+  line-height: 0.6;
+
+}
+
+p {
+  font-family: "Host Grotesk", sans-serif;
+}
+
+a {
+  text-decoration: none;
+  color: var(--base-200);
+  font-family: "Host Grotesk", sans-serif;
+  font-size: 1.125rem;
+  font-weight: 450;
+  line-height: 0.9;
+}
+
+.navbar-backdrop,
+.navbar-img {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100svh;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.navbar-background,
+.navbar-items {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50%;
+  min-width: 720px;
+  aspect-ratio: 16/9;
+  will-change: width, height;
+}
+
+.navbar-background {
+  background-color: var(--base-100);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.navbar-items {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  z-index: 2;
+  background: transparent;
+}
+
+.navbar-logo {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  padding: 2.5rem;
+  pointer-events: all;
+  z-index: 2;
+}
+
+.navbar-logo.navbar-logo-pinned {
+  bottom: unset;
+  top: -1.75rem;
+}
+
+.navbar-logo img {
+  object-fit: contain;
+}
+
+.navbar-links {
+  position: relative;
+  width: 50%;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-links:nth-child(1) {
+  display: flex;
+  justify-content: center;
+  height: 5rem;
+  gap: 10rem;
+}
+
+.navbar-links:nth-child(2) {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  height: 5rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+section {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.hero {
+  padding: 2.5rem 0;
+  margin-top: 100svh;
+}
+
+.craft {
+  padding: 2.5rem 0;
+  height: 100svh
+}
+
+.about {
+  height: 100svh;
+}
+
+.navbar-active {
+  background: #f7f6f2;
+}
+
+.navbar-background {
+  transition: background-color 0.3s ease;
+}
+
+.navbar-active .navbar-links a {
+  color: black;
+}
+
+.navbar-active .navbar-logo img {
+  opacity: 1;
+}
+
+.navbar-divider {
+  position: absolute;
+
+  left: 0;
+  bottom: 0;
+
+  width: 100%;
+  height: 1px;
+
+  background: black;
+
+  transform-origin: left center;
+  transform: scaleX(0);
+
+  pointer-events: none;
+}
+
+.navbar-final {
+  width: 100% !important;
+  height: 80px !important;
+
+  min-width: 100%;
+
+  top: 0 !important;
+  left: 0 !important;
+
+  transform: none !important;
+
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+
+  background: rgba(247, 246, 242, 0.75);
+
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.navbar-final .navbar-logo {
+  width: 220px;
+
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.navbar-search {
+  position: relative;
+  border-radius: 1.5rem;
+  margin-right: 2rem;
+  width: 220px;
+  /* Optional: Adjust this to shift the whole bar left/right */
+
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  overflow: hidden;
+  /* Crucial to keep the pill shape clean */
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────────
+   Hamburger button (hidden on desktop)
+───────────────────────────────────────── */
+.navbar-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 201;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+/* Mobile-only search icon in topbar (hidden on desktop) */
+.navbar-mobile-search-icon {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--base-200);
+  width: 36px;
+  height: 36px;
+  padding: 4px;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+
+.navbar-mobile-search-icon:hover {
+  opacity: 0.6;
+}
+
+/* ─────────────────────────────────────────
+   Mobile standalone expanding search pill
+   (hidden on desktop, absolutely placed in topbar on mobile)
+───────────────────────────────────────── */
+.navbar-mobile-search {
+  display: none;
+  position: absolute;
+  /* Anchored from the right, just left of the logo */
+  right: calc(130px + 1.5rem);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: hidden;
+  cursor: pointer;
+  align-items: center;
+}
+
+/* Right-anchor means width growth goes LEFT → never pushes the logo */
+
+.navbar-mobile-search-btn-inner {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--base-200);
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.navbar-mobile-search-input-inner {
+  position: absolute;
+  top: 50%;
+  left: 36px;
+  transform: translateY(-50%);
+  width: 110px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: "Host Grotesk", sans-serif;
+  font-size: 15px;
+  color: var(--base-200);
+  opacity: 0;
+  display: none;
+}
+
+.navbar-mobile-search-input-inner::placeholder {
+  color: rgba(20, 20, 20, 0.5);
+}
+
+.navbar-hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--base-200);
+  border-radius: 2px;
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+  transform-origin: center;
+}
+
+.navbar-hamburger.open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.navbar-hamburger.open span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.navbar-hamburger.open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ─────────────────────────────────────────
+   Mobile dim overlay
+───────────────────────────────────────── */
+.navbar-mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 350;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.navbar-mobile-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* ─────────────────────────────────────────
+   Mobile slide-in drawer
+───────────────────────────────────────── */
+.navbar-mobile-drawer {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 75vw;
+  max-width: 300px;
+  height: 100svh;
+  background: var(--base-100);
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+  z-index: 400;
+  flex-direction: column;
+  padding: 1.5rem;
+  gap: 2rem;
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.08);
+}
+
+.navbar-mobile-drawer.open {
+  transform: translateX(0);
+}
+
+.navbar-mobile-close {
+  align-self: flex-end;
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: var(--base-200);
+  line-height: 1;
+  padding: 4px 8px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.navbar-mobile-close:hover {
+  opacity: 1;
+}
+
+.navbar-mobile-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding-bottom: 1.5rem;
+}
+
+.navbar-mobile-nav a {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 2rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--base-200);
+  transition: opacity 0.2s;
+}
+
+.navbar-mobile-nav a:hover {
+  opacity: 0.6;
+}
+
+.navbar-mobile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.navbar-mobile-actions a,
+.navbar-mobile-actions button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--base-200);
+  font-family: "Host Grotesk", sans-serif;
+  font-weight: 400;
+  text-decoration: none;
+  padding: 0;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.navbar-mobile-actions a:hover,
+.navbar-mobile-actions button:hover {
+  opacity: 1;
+}
+
+.navbar-cart-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: var(--base-200);
+  color: var(--base-100);
+  font-size: 10px;
+  border-radius: 50%;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+.navbar-search-btn {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  /* Starts perfectly centered in the 42px pill */
+  transform: translateY(-50%);
+  /* Centers vertically */
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+
+  pointer-events: none;
+  color: var(--base-200);
+}
+
+.navbar-search input {
+  position: absolute;
+  top: 50%;
+  left: 42px;
+  /* Text starts right next to where the icon finishes sliding */
+  transform: translateY(-50%);
+
+  width: 160px;
+  /* Fixed width prevents the text from wrapping/squishing */
+  border: none;
+  outline: none;
+  background: transparent;
+
+  font-family: "Host Grotesk", sans-serif;
+  font-size: 16px;
+  color: var(--base-200);
+
+  opacity: 0;
+  display: none;
+}
+
+.navbar-search input::placeholder {
+  color: rgba(20, 20, 20, 0.5);
+  /* Adjust placeholder opacity as needed */
+}
+
+@media (max-width: 720px) {
+
+  /* ── Compact topbar ── */
+  .navbar-background,
+  .navbar-items {
+    width: 100% !important;
+    height: 60px !important;
+    min-width: 100%;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+  }
+
+  /* navbar-items is a 60px fixed container; children are all absolutely placed */
+  .navbar-items {
+    display: block;
+    position: fixed;
+    padding: 0;
+  }
+
+  /* Compact topbar height override */
+  .navbar-final {
+    height: 60px !important;
+  }
+
+  /* Hide ALL desktop nav links on mobile */
+  .navbar-links {
+    display: none !important;
+  }
+
+  /* Hamburger — absolute, left side */
+  .navbar-hamburger {
+    display: flex;
+    position: absolute;
+    left: 1rem;
+    right: auto;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  /* Mobile standalone search pill — show on mobile */
+  .navbar-mobile-search {
+    display: flex;
+  }
+
+  /* Activate overlay + drawer */
+  .navbar-mobile-overlay,
+  .navbar-mobile-drawer {
+    display: flex;
+  }
+
+  /* Logo — absolute, right side */
+  .navbar-logo,
+  .navbar-logo.navbar-logo-pinned,
+  .navbar-final .navbar-logo {
+    position: absolute;
+    left: auto;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    padding: 0;
+    width: auto;
+    height: 36px;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    margin-top: 60px;
+    padding: 2.5rem 1.25rem;
+    height: auto;
+    min-height: auto;
+  }
+
+  .hero-inner {
+    flex-direction: column !important;
+    gap: 2rem !important;
+    align-items: stretch !important;
+  }
+
+  .hero-inner>img {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 11vw, 4.5rem);
+  }
+
+  h4 {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  /* ── Craft ── */
+  .craft {
+    height: auto;
+    min-height: auto;
+    padding: 3rem 1.25rem;
+  }
+
+  .craft-cards-row {
+    flex-direction: column !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin-top: 1.5rem !important;
+    gap: 1rem !important;
+  }
+
+  /* ── General ── */
+  section {
+    min-height: auto;
+  }
+}
