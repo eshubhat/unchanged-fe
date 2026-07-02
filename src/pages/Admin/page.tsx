@@ -24,6 +24,12 @@ const API = import.meta.env.VITE_BACKEND_URL;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 interface Variant {
   id: string;
   sku: string;
@@ -43,7 +49,7 @@ interface Product {
   discountPercent: number;
   isActive: boolean;
   isFeatured: boolean;
-  isLimited?: boolean;
+  isLimitedStock?: boolean;
   description?: string;
   shortDescription?: string;
   variants?: Variant[];
@@ -123,7 +129,22 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
   // Auto-flag as limited if stock < 10
   const autoIsLimited = stockQuantity !== "" && parseInt(stockQuantity) < 10;
 
-  const categoryId = "1b69ded6-fe7b-486d-95b6-78f9ad2c1b67";
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryId, setCategoryId] = useState("");
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    fetch(`${API}/categories`)
+      .then((r) => r.json())
+      .then((data) => {
+        const arr = Array.isArray(data) ? data : data?.data ?? [];
+        setCategories(arr);
+        if (arr.length > 0) setCategoryId(arr[0].id);
+      })
+      .catch(() => onToast("Failed to load categories", "error"))
+      .finally(() => setCategoriesLoading(false));
+  }, [onToast]);
 
   const discount =
     basePrice && sellingPrice
@@ -187,11 +208,38 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
     }
   };
 
+  // Don't allow submission without a valid category
+  const canSubmit = !loading && !!frontImage && !!categoryId && !categoriesLoading;
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8">
       {/* Product Info */}
       <section className="admin-card flex flex-col gap-4">
         <h2 className="section-title m-0"><Edit3 size={16} /> Product Info</h2>
+
+        {/* Category selector */}
+        <div className="field-group">
+          <label className="field-label">Category</label>
+          {categoriesLoading ? (
+            <div className="admin-input flex items-center gap-2 text-stone-400 text-sm">
+              <Loader2 size={14} className="animate-spin" /> Loading categories...
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="admin-input text-red-500 text-sm">No categories found. Add one in the database first.</div>
+          ) : (
+            <select
+              required
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className="admin-input"
+            >
+              <option value="" disabled>— Select a category —</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
 
         <div className="field-group">
           <label className="field-label">Product Name</label>
@@ -327,7 +375,7 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
       </section>
 
       <button
-        type="submit" disabled={loading || !frontImage}
+        type="submit" disabled={!canSubmit}
         className="admin-btn-primary w-full"
       >
         {loading ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
@@ -676,7 +724,7 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
       shortDescription: p.shortDescription ?? "",
       isActive: p.isActive,
       isFeatured: p.isFeatured,
-      isLimitedStock: p.isLimited ?? false,
+      isLimitedStock: p.isLimitedStock ?? false,
     });
     setExistingFront(p.images?.find((i: any) => i.isPrimary) || null);
     setExistingBack(p.images?.find((i: any) => !i.isPrimary) || null);
@@ -717,7 +765,7 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
           shortDescription: form.shortDescription || undefined,
           isActive: form.isActive,
           isFeatured: form.isFeatured,
-          isLimited: form.isLimitedStock || autoIsLimited,
+          isLimitedStock: form.isLimitedStock || autoIsLimited,
         }),
       });
       if (!res.ok) {
