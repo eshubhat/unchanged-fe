@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { Flip } from "gsap/Flip";
 import { useGSAP } from "@gsap/react";
 import companyLogo from "../../assets/company_logo-cropped.svg";
 import { lenis } from "../../utils/lenis"
@@ -9,7 +8,7 @@ import { Search, ShoppingCart } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getCart } from "../../utils/cart";
 
-gsap.registerPlugin(ScrollTrigger, Flip);
+gsap.registerPlugin(ScrollTrigger);
 
 export default function Navbar() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -178,9 +177,22 @@ export default function Navbar() {
       const initialHeight = navbarBg.offsetHeight;
       const initialLinksWidths = navbarLinks.map((link) => link.offsetWidth);
 
-      const state = Flip.getState(navbarLogo);
+      // Capture bounding rect BEFORE class change (logo at bottom-center of centered box)
+      const logoInitialRect = navbarLogo.getBoundingClientRect();
+
+      // Apply the final pinned state
       navbarLogo.classList.add("navbar-logo-pinned");
       gsap.set(navbarLogo, { width: 250 });
+
+      // Capture bounding rect AFTER class change (logo at top: -1.75rem, width: 250px)
+      const logoPinnedRect = navbarLogo.getBoundingClientRect();
+
+      // Calculate how far to offset the logo at progress=0 so it appears at its initial position
+      const logoOffsetY = logoInitialRect.top - logoPinnedRect.top;
+      const logoOffsetX =
+        (logoInitialRect.left + logoInitialRect.width / 2) -
+        (logoPinnedRect.left + logoPinnedRect.width / 2);
+      const logoScaleFactor = logoInitialRect.width / logoPinnedRect.width;
 
       const tl = gsap.timeline({
         scrollTrigger: {
@@ -211,7 +223,15 @@ export default function Navbar() {
         },
       });
 
-      tl.add(Flip.from(state, { ease: "none" }), 0);
+      // Animate logo from initial bottom-center position → final pinned top position.
+      // Using explicit fromTo (instead of Flip) so it renders correctly at progress=0
+      // without relying on the scrubber settling first.
+      tl.fromTo(
+        navbarLogo,
+        { x: logoOffsetX, y: logoOffsetY, scale: logoScaleFactor, transformOrigin: "center center" },
+        { x: 0, y: 0, scale: 1, ease: "none" },
+        0,
+      );
       tl.fromTo(
         [navbarBg, navbarItems],
         { width: initialWidth, height: initialHeight },
@@ -225,6 +245,9 @@ export default function Navbar() {
       tl.to(navbarBg, { backgroundColor: "#fcf9f0", duration: 0.25 }, 0.85);
       tl.to(navbarDividerRef.current, { scaleX: 1, duration: 0, ease: "power2.out" }, 0.85);
 
+      // Force progress=0 BEFORE refresh so the logo is at its correct initial
+      // visual position when ScrollTrigger calculates its starting state.
+      tl.progress(0, true);
       ScrollTrigger.refresh();
     },
     { dependencies: [resizeKey, isLandingPage], scope: containerRef },
