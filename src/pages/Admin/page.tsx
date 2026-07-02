@@ -17,11 +17,10 @@ import {
   CheckCircle2,
   Boxes,
   Percent,
-  Flame,
-  ChevronRight,
+  Flame
 } from "lucide-react";
 
-const API = "http://localhost:3000/api/v1";
+const API = import.meta.env.VITE_BACKEND_URL;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -264,13 +263,11 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
               <label className="flex items-center gap-2 cursor-pointer">
                 <div
                   onClick={() => setIsLimitedStock(!isLimitedStock)}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${
-                    isLimitedStock || autoIsLimited ? "bg-orange-500" : "bg-stone-300"
-                  }`}
+                  className={`w-11 h-6 rounded-full transition-colors relative ${isLimitedStock || autoIsLimited ? "bg-orange-500" : "bg-stone-300"
+                    }`}
                 >
-                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                    isLimitedStock || autoIsLimited ? "translate-x-5" : "translate-x-0.5"
-                  }`} />
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isLimitedStock || autoIsLimited ? "translate-x-5" : "translate-x-0.5"
+                    }`} />
                 </div>
               </label>
             </div>
@@ -645,8 +642,8 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
     shortDescription: "", isActive: true, isFeatured: false, isLimitedStock: false,
   });
 
-  const [existingFront, setExistingFront] = useState<{id: string, url: string} | null>(null);
-  const [existingBack, setExistingBack] = useState<{id: string, url: string} | null>(null);
+  const [existingFront, setExistingFront] = useState<{ id: string, url: string } | null>(null);
+  const [existingBack, setExistingBack] = useState<{ id: string, url: string } | null>(null);
   const [frontImage, setFrontImage] = useState<File | null>(null);
   const [backImage, setBackImage] = useState<File | null>(null);
   const frontInputRef = useRef<HTMLInputElement>(null);
@@ -727,35 +724,35 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
         const err = await res.json();
         throw new Error(err.message || "Failed to update");
       }
-      
+
       const oldFront = selectedProduct.images?.find((i: any) => i.isPrimary);
       if (frontImage || (!existingFront && oldFront)) {
-         if (oldFront) {
-            await fetch(`${API}/admin/products/${selectedProduct.id}/images/${oldFront.id}`, { method: 'DELETE' });
-         }
-         if (frontImage) {
-            const url = await uploadImage(frontImage);
-            await fetch(`${API}/admin/products/${selectedProduct.id}/images`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ images: [{ url, isPrimary: true }] })
-            });
-         }
+        if (oldFront) {
+          await fetch(`${API}/admin/products/${selectedProduct.id}/images/${oldFront.id}`, { method: 'DELETE' });
+        }
+        if (frontImage) {
+          const url = await uploadImage(frontImage);
+          await fetch(`${API}/admin/products/${selectedProduct.id}/images`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images: [{ url, isPrimary: true }] })
+          });
+        }
       }
 
       const oldBack = selectedProduct.images?.find((i: any) => !i.isPrimary);
       if (backImage || (!existingBack && oldBack)) {
-         if (oldBack) {
-            await fetch(`${API}/admin/products/${selectedProduct.id}/images/${oldBack.id}`, { method: 'DELETE' });
-         }
-         if (backImage) {
-            const url = await uploadImage(backImage);
-            await fetch(`${API}/admin/products/${selectedProduct.id}/images`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ images: [{ url, isPrimary: false }] })
-            });
-         }
+        if (oldBack) {
+          await fetch(`${API}/admin/products/${selectedProduct.id}/images/${oldBack.id}`, { method: 'DELETE' });
+        }
+        if (backImage) {
+          const url = await uploadImage(backImage);
+          await fetch(`${API}/admin/products/${selectedProduct.id}/images`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images: [{ url, isPrimary: false }] })
+          });
+        }
       }
 
       // Re-fetch to get new images array
@@ -771,7 +768,7 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
       setBackImage(null);
       if (frontInputRef.current) frontInputRef.current.value = "";
       if (backInputRef.current) backInputRef.current.value = "";
-      
+
       onToast("Product updated successfully!", "success");
     } catch (err: any) {
       onToast(err.message, "error");
@@ -829,9 +826,8 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
                   </div>
                 )}
                 {/* Status badge */}
-                <span className={`absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  p.isActive ? "bg-emerald-500/90 text-white" : "bg-stone-500/80 text-white"
-                }`}>
+                <span className={`absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${p.isActive ? "bg-emerald-500/90 text-white" : "bg-stone-500/80 text-white"
+                  }`}>
                   {p.isActive ? "Active" : "Off"}
                 </span>
                 {/* Edit icon overlay */}
