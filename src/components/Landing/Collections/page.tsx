@@ -112,7 +112,7 @@ export default function CollectionSection() {
 
   useEffect(() => {
     // Fetch products from backend
-    fetch('http://localhost:3000/api/v1/products')
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
       .then(res => res.json())
       .then(data => {
         // Handle nested response structures like {success: true, data: {data: [...]}}
@@ -122,7 +122,7 @@ export default function CollectionSection() {
         const formattedProducts = items.map((item: any) => {
           const frontImg = item.images?.find((img: any) => img.isPrimary)?.url || "/src/assets/tshirt-designs/Vintage-front.jpg";
           const backImg = item.images?.find((img: any) => !img.isPrimary)?.url || frontImg;
-          
+
           return {
             id: item.id,
             title: item.name,
@@ -214,7 +214,7 @@ export default function CollectionSection() {
             {loading ? (
               <div className="col-span-full py-20 text-center text-stone-500">Loading products...</div>
             ) : (() => {
-              const displayedProducts = products.filter(product => 
+              const displayedProducts = products.filter(product =>
                 product.title.toLowerCase().includes(searchQuery)
               );
               if (displayedProducts.length === 0) {
