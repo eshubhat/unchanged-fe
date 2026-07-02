@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   Boxes,
   Percent,
-  Flame
+  Flame,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 const API = import.meta.env.VITE_BACKEND_URL;
@@ -65,13 +67,16 @@ const uploadImage = async (file: File) => {
     body: JSON.stringify({ folder: "products", contentType: file.type, fileSizeBytes: file.size }),
   });
   if (!presignRes.ok) throw new Error("Failed to get presigned URL");
-  const presignData = await presignRes.json();
+  const presignResJson = await presignRes.json();
+  const presignData = presignResJson.data || presignResJson;
 
   const formData = new FormData();
   formData.append("file", file);
   const uploadRes = await fetch(presignData.uploadUrl, { method: "POST", body: formData });
   if (!uploadRes.ok) throw new Error("Failed to upload file");
-  const uploadData = await uploadRes.json();
+  
+  const uploadResJson = await uploadRes.json();
+  const uploadData = uploadResJson.data || uploadResJson;
 
   await fetch(`${API}/uploads/confirm`, {
     method: "POST",
@@ -132,6 +137,10 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState("");
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -145,6 +154,29 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
       .catch(() => onToast("Failed to load categories", "error"))
       .finally(() => setCategoriesLoading(false));
   }, [onToast]);
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    setCreatingCategory(true);
+    try {
+      const res = await fetch(`${API}/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCategoryName }),
+      });
+      if (!res.ok) throw new Error("Failed to create category");
+      const newCat = await res.json();
+      setCategories((prev) => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
+      setCategoryId(newCat.id);
+      setIsAddingCategory(false);
+      setNewCategoryName("");
+      onToast("Category created successfully!", "success");
+    } catch (err: any) {
+      onToast(err.message, "error");
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
 
   const discount =
     basePrice && sellingPrice
@@ -180,7 +212,8 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
         const err = await productRes.json();
         throw new Error(err.message || "Failed to create product");
       }
-      const product = await productRes.json();
+      const resData = await productRes.json();
+      const product = resData.data || resData;
 
       const uploadedImages: { url: string; isPrimary: boolean }[] = [];
       if (frontImage) uploadedImages.push({ url: await uploadImage(frontImage), isPrimary: true });
@@ -219,13 +252,41 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
 
         {/* Category selector */}
         <div className="field-group">
-          <label className="field-label">Category</label>
-          {categoriesLoading ? (
+          <div className="flex items-center justify-between">
+            <label className="field-label">Category</label>
+            <button 
+              type="button" 
+              onClick={() => setIsAddingCategory(!isAddingCategory)}
+              className="text-xs text-stone-500 hover:text-stone-800 flex items-center gap-1 font-medium"
+            >
+              {isAddingCategory ? "Cancel" : <><Plus size={12}/> New Category</>}
+            </button>
+          </div>
+          {isAddingCategory ? (
+            <div className="flex gap-2 items-center">
+              <input 
+                type="text" 
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className="admin-input flex-1"
+                placeholder="e.g. Hoodies"
+                autoFocus
+              />
+              <button 
+                type="button"
+                onClick={handleCreateCategory}
+                disabled={creatingCategory || !newCategoryName.trim()}
+                className="admin-btn-primary py-2 px-4 whitespace-nowrap"
+              >
+                {creatingCategory ? <Loader2 size={14} className="animate-spin" /> : "Create"}
+              </button>
+            </div>
+          ) : categoriesLoading ? (
             <div className="admin-input flex items-center gap-2 text-stone-400 text-sm">
               <Loader2 size={14} className="animate-spin" /> Loading categories...
             </div>
           ) : categories.length === 0 ? (
-            <div className="admin-input text-red-500 text-sm">No categories found. Add one in the database first.</div>
+            <div className="admin-input text-red-500 text-sm">No categories found. Add one.</div>
           ) : (
             <select
               required
@@ -683,6 +744,8 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Form state mirrors selectedProduct
   const [form, setForm] = useState({
@@ -822,6 +885,26 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
       onToast(err.message, "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedProduct) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API}/admin/products/${selectedProduct.id}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 204) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to delete product");
+      }
+      setProducts((prev) => prev.filter((p) => p.id !== selectedProduct.id));
+      closeDrawer();
+      setConfirmDelete(false);
+      onToast(`"${selectedProduct.name}" deleted successfully.`, "success");
+    } catch (err: any) {
+      onToast(err.message, "error");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -1101,16 +1184,33 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
                 </div>
               </div>
 
-              {/* Save button */}
-              <div style={{ borderTop: "1px solid #e7e5e4", paddingTop: "1rem", paddingBottom: "0.5rem" }}>
+              {/* Actions footer */}
+              <div style={{ borderTop: "1px solid #e7e5e4", paddingTop: "1rem", paddingBottom: "0.5rem", display: "flex", flexDirection: "column", gap: "0.625rem" }}>
                 <button
                   onClick={() => handleSave()}
-                  disabled={saving}
+                  disabled={saving || deleting}
                   className="admin-btn-primary"
                   style={{ width: "100%", padding: "0.875rem", fontSize: "0.85rem" }}
                 >
                   {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                   {saving ? "Saving Changes..." : "Save All Changes"}
+                </button>
+                {/* Delete button — opens confirmation */}
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={saving || deleting}
+                  style={{
+                    width: "100%", padding: "0.75rem", fontSize: "0.8rem", fontWeight: 600,
+                    background: "transparent", border: "1.5px solid #fca5a5", borderRadius: 8,
+                    color: "#dc2626", cursor: "pointer", display: "flex", alignItems: "center",
+                    justifyContent: "center", gap: 6, transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "#fef2f2"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  <Trash2 size={15} />
+                  Delete Product
                 </button>
               </div>
             </>
@@ -1122,6 +1222,64 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
           )}
         </div>
       </div>
+
+      {/* ── Delete confirmation modal */}
+      {confirmDelete && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 10000,
+            background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
+          }}
+          onClick={() => setConfirmDelete(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "white", borderRadius: 16, padding: "2rem",
+              maxWidth: 400, width: "100%", boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
+              display: "flex", flexDirection: "column", gap: "1rem", textAlign: "center",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <div style={{ background: "#fef2f2", borderRadius: "50%", padding: "1rem" }}>
+                <AlertTriangle size={28} color="#dc2626" />
+              </div>
+            </div>
+            <div>
+              <p style={{ fontWeight: 700, fontSize: "1.05rem", color: "#1c1917", marginBottom: 6 }}>Delete Product?</p>
+              <p style={{ fontSize: "0.85rem", color: "#78716c", lineHeight: 1.5 }}>
+                You are about to permanently delete <strong style={{ color: "#1c1917" }}>{selectedProduct?.name}</strong>.
+                This action cannot be undone.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                style={{
+                  flex: 1, padding: "0.75rem", borderRadius: 8, border: "1.5px solid #e7e5e4",
+                  background: "white", cursor: "pointer", fontWeight: 600, fontSize: "0.875rem", color: "#57534e",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  flex: 1, padding: "0.75rem", borderRadius: 8, border: "none",
+                  background: deleting ? "#fca5a5" : "#dc2626", cursor: deleting ? "not-allowed" : "pointer",
+                  fontWeight: 700, fontSize: "0.875rem", color: "white",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                }}
+              >
+                {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                {deleting ? "Deleting..." : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
