@@ -11,13 +11,13 @@ export default function CartPage() {
     setCartItems(getCart());
   }, []);
 
-  const handleRemove = (id: number) => {
-    removeFromCart(id);
+  const handleRemove = (id: number, size?: string) => {
+    removeFromCart(id, size);
     setCartItems(getCart());
   };
 
-  const handleUpdateQuantity = (id: number, quantity: number) => {
-    updateCartQuantity(id, quantity);
+  const handleUpdateQuantity = (id: number, quantity: number, size?: string) => {
+    updateCartQuantity(id, quantity, size);
     setCartItems(getCart());
   };
 
@@ -81,15 +81,17 @@ export default function CartPage() {
                   <div className="col-span-1 md:col-span-2 flex justify-start md:justify-center">
                     <div className="flex items-center border border-stone-300 w-fit">
                       <button
-                        className="px-3 py-1 hover:bg-stone-100"
-                        onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                        className="px-3 py-1 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity - 1, item.size)}
+                        disabled={item.quantity <= 1}
                       >
                         <Minus size={14} />
                       </button>
                       <span className="px-3 text-sm font-medium">{item.quantity}</span>
                       <button
-                        className="px-3 py-1 hover:bg-stone-100"
-                        onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                        className="px-3 py-1 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity + 1, item.size)}
+                        disabled={item.quantity >= (item.maxStock ?? 10)}
                       >
                         <Plus size={14} />
                       </button>
