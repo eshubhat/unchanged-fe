@@ -11,6 +11,7 @@ import CheckoutPage from "./pages/Checkout/page";
 import PaymentPage from "./pages/Payment/page";
 import SuccessPage from "./pages/Success/page";
 import AdminPage from "./pages/Admin/page";
+import AuthCallbackPage from "./pages/AuthCallback/page";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import "./App.css";
@@ -46,6 +47,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/cart" element={<CartPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/success" element={<SuccessPage />} />

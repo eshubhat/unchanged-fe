@@ -7,8 +7,10 @@ import CollectionSection from "../../components/Landing/Collections/page";
 export default function Landing() {
   return (
     <div className="landing-page">
-      <Hero />
-      <CraftSection />
+      <div className="hidden lg:block">
+        <Hero />
+        <CraftSection />
+      </div>
       {/* <About /> */}
       <CollectionSection />
     </div>

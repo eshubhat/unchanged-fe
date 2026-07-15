@@ -145,6 +145,11 @@ export default function Navbar() {
 
       if (!navbarBg || !navbarItems || !navbarLogo || navbarLinks.length === 0) return;
 
+      // Kill any lingering ScrollTriggers from the previous route before clearing
+      // inline styles — without this, the old scrub tween re-applies stale transforms
+      // (large scale / y offset / width: 250) to the logo after clearProps runs.
+      ScrollTrigger.getAll().forEach((st) => st.kill());
+
       gsap.set([navbarBg, navbarItems, navbarLogo, navbarImg, navbarDividerRef.current, ...navbarLinks], {
         clearProps: "all",
       });
