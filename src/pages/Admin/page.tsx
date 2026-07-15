@@ -62,7 +62,7 @@ interface Product {
   variants?: Variant[];
   images?: { id: string; url: string; isPrimary: boolean }[];
 }
-  
+
 interface Address {
   addressLine1: string;
   addressLine2?: string;
@@ -456,8 +456,8 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
                     <div className={`text-center text-xs font-bold uppercase tracking-wider py-1 rounded-md border
                       ${val === 0 ? "bg-stone-100 border-stone-200 text-stone-400"
                         : isLow ? "bg-orange-50 border-orange-300 text-orange-700"
-                        : isFull ? "bg-emerald-50 border-emerald-300 text-emerald-700"
-                        : "bg-stone-800 border-stone-900 text-white"}`}>
+                          : isFull ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                            : "bg-stone-800 border-stone-900 text-white"}`}>
                       {size}
                     </div>
                     <input
@@ -814,7 +814,7 @@ function ManageStockTab({ onToast }: { onToast: (msg: string, type: "success" | 
                               <div className={`w-full py-2 text-center text-xs font-bold uppercase tracking-wider rounded-md border
                                 ${isOut ? "bg-red-50 border-red-300 text-red-600"
                                   : isLow ? "bg-orange-50 border-orange-300 text-orange-700"
-                                  : "bg-emerald-50 border-emerald-300 text-emerald-700"}`}>
+                                    : "bg-emerald-50 border-emerald-300 text-emerald-700"}`}>
                                 {size}
                               </div>
                               {/* Stock display */}
@@ -1650,7 +1650,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
   const [expanded, setExpanded] = useState(false);
   const sc = STATUS_COLORS[order.status] ?? { bg: "#f5f5f4", color: "#57534e", border: "#e7e5e4" };
   const addr = order.shippingAddress;
-  
+
   return (
     <div
       style={{
@@ -1659,11 +1659,11 @@ function OrderCard({ order }: { order: AdminOrder }) {
       }}
     >
       {/* Order header (clickable) */}
-      <div 
+      <div
         onClick={() => setExpanded(!expanded)}
-        style={{ 
-          display: "flex", alignItems: "center", justifyContent: "space-between", 
-          flexWrap: "wrap", gap: "0.5rem", cursor: "pointer", userSelect: "none" 
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap", gap: "0.5rem", cursor: "pointer", userSelect: "none"
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
@@ -1777,8 +1777,8 @@ function SalesDashboardTab({ onToast }: { onToast: (msg: string, type: "success"
   const [fromDate, setFromDate] = useState(defaultFrom);
   const [toDate, setToDate] = useState(defaultTo);
 
-  const token = localStorage.getItem("unchanged_token");
-  const authHeader = token ? { Authorization: `Bearer ${token}` } as Record<string, string> : {} as Record<string, string>;
+  // const token = localStorage.getItem("unchanged_token");
+  // const authHeader = token ? { Authorization: `Bearer ${token}` } as Record<string, string> : {} as Record<string, string>;
 
   const fetchKPIAndStock = useCallback(async () => {
     setLoading(true);
@@ -2253,7 +2253,7 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
 
   const handleStatusUpdate = async (newStatus: string) => {
     if (!orderDetail) return;
-    
+
     // Safety check for DELIVERED
     if (newStatus === "delivered" && !window.confirm("Are you sure you want to mark this order as Delivered? This will permanently deduct inventory and cannot be undone.")) {
       return;
@@ -2264,9 +2264,9 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
       const token = localStorage.getItem("unchanged_token");
       const res = await fetch(`${API}/admin/orders/${orderDetail.id}/status`, {
         method: "PATCH",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ status: newStatus }),
       });
@@ -2275,7 +2275,7 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
         throw new Error(err.message || "Failed to update status");
       }
       onToast(`Order marked as ${newStatus.toUpperCase()}`, "success");
-      
+
       // Update local state
       setOrderDetail(prev => prev ? { ...prev, status: newStatus } : null);
       setOrders(prev => prev.map(o => o.id === orderDetail.id ? { ...o, status: newStatus } : o));
@@ -2311,7 +2311,7 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
   return (
     <div className="flex flex-col gap-6">
       <h2 className="text-2xl font-serif font-bold uppercase tracking-tight">Orders</h2>
-      
+
       {orders.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-stone-200">
           <Package className="mx-auto text-stone-300 mb-4" size={48} />
@@ -2334,7 +2334,7 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
                 <tr key={o.id} onClick={() => handleRowClick(o.id)} className="hover:bg-stone-50 cursor-pointer transition-colors">
                   <td className="px-6 py-4 font-mono font-medium">{o.orderNumber}</td>
                   <td className="px-6 py-4 text-stone-500">{new Date(o.createdAt).toLocaleString()}</td>
-                  <td className="px-6 py-4">{o.user?.email || o.userId.slice(0,8)+'...'}</td>
+                  <td className="px-6 py-4">{o.user?.email || o.userId.slice(0, 8) + '...'}</td>
                   <td className="px-6 py-4 font-bold">₹{o.totalAmount}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${getStatusColor(o.status)}`}>
@@ -2359,7 +2359,7 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
                 <X size={24} />
               </button>
             </div>
-            
+
             {/* Modal Body */}
             <div className="p-6 flex flex-col gap-8">
               {loadingDetail || !orderDetail ? (
@@ -2374,10 +2374,10 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
                       <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-4 border-b border-stone-100 pb-2">Customer & Shipping</h4>
                       <p className="text-sm font-medium mb-1">{orderDetail.user?.firstName} {orderDetail.user?.lastName}</p>
                       <p className="text-sm text-stone-500 mb-4">{orderDetail.user?.email}</p>
-                      
+
                       <div className="text-sm text-stone-600 leading-relaxed bg-stone-50 p-4 rounded-lg border border-stone-100">
-                        {orderDetail.shippingAddress?.addressLine1}<br/>
-                        {orderDetail.shippingAddress?.addressLine2 && <>{orderDetail.shippingAddress.addressLine2}<br/></>}
+                        {orderDetail.shippingAddress?.addressLine1}<br />
+                        {orderDetail.shippingAddress?.addressLine2 && <>{orderDetail.shippingAddress.addressLine2}<br /></>}
                         {orderDetail.shippingAddress?.city}, {orderDetail.shippingAddress?.state} {orderDetail.shippingAddress?.pincode}
                       </div>
                     </div>
@@ -2412,7 +2412,7 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
                         {orderDetail.status === 'returned' && (
                           <button onClick={() => handleStatusUpdate('refunded')} disabled={updatingStatus} className="admin-btn-primary w-full bg-stone-600">Issue Refund</button>
                         )}
-                        
+
                         {/* Cancel button available before shipped */}
                         {['pending', 'confirmed', 'processing'].includes(orderDetail.status) && (
                           <button onClick={() => handleStatusUpdate('cancelled')} disabled={updatingStatus} className="mt-4 text-xs font-bold text-red-500 hover:text-red-700 uppercase tracking-wider text-center w-full py-2">
@@ -2433,7 +2433,7 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
                             {item.productSnapshot?.imageUrl ? (
                               <img src={item.productSnapshot.imageUrl} alt="product" className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-stone-300"><ImageIcon size={20}/></div>
+                              <div className="w-full h-full flex items-center justify-center text-stone-300"><ImageIcon size={20} /></div>
                             )}
                           </div>
                           <div className="flex-1">
