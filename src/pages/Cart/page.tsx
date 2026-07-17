@@ -66,7 +66,7 @@ export default function CartPage() {
                       <h3 className="font-medium text-lg font-serif">{item.title}</h3>
                       {/* <p className="text-sm text-stone-500 uppercase">White / One Size</p> */}
                       <button
-                        onClick={() => handleRemove(item.id)}
+                        onClick={() => handleRemove(item.id, item.size)}
                         className="text-red-500 hover:text-red-700 text-sm mt-2 flex items-center gap-1 md:hidden"
                       >
                         <Trash2 size={16} /> Remove
@@ -102,7 +102,7 @@ export default function CartPage() {
                     <span className="md:hidden text-stone-500 text-sm font-normal">Total:</span>
                     ₹{parsePrice(item.price) * item.quantity}
                     <button
-                      onClick={() => handleRemove(item.id)}
+                      onClick={() => handleRemove(item.id, item.size)}
                       className="text-stone-400 hover:text-red-500 ml-4 hidden md:block"
                       title="Remove item"
                     >

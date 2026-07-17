@@ -586,7 +586,7 @@ function ManageStockTab({ onToast }: { onToast: (msg: string, type: "success" | 
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
     try {
-      const res = await fetch(`${API}/admin/products?limit=100&includeInactive=true`);
+      const res = await fetch(`${API}/admin/products?limit=100&includeInactive=true`, { cache: 'no-store' });
       if (!res.ok) throw new Error("Failed to fetch products");
       const data = await res.json();
       const arr = data?.data?.data || data?.data || data;
@@ -618,7 +618,7 @@ function ManageStockTab({ onToast }: { onToast: (msg: string, type: "success" | 
       onToast("Stock updated!", "success");
       setStockUpdates((prev) => { const n = { ...prev }; delete n[variantId]; return n; });
       // Refresh product data
-      const refreshed = await fetch(`${API}/admin/products/${productId}`);
+      const refreshed = await fetch(`${API}/admin/products/${productId}`, { cache: 'no-store' });
       const refreshedData = await refreshed.json();
       const updatedProduct = refreshedData?.data || refreshedData;
       setProducts((prev) => prev.map((p) => (p.id === productId ? updatedProduct : p)));
@@ -652,7 +652,7 @@ function ManageStockTab({ onToast }: { onToast: (msg: string, type: "success" | 
       setNewVariantProductId(null);
       setNewVariantData({ sku: "", size: "", color: "", colorHex: "", stockQuantity: "" });
       // Refresh
-      const refreshed = await fetch(`${API}/admin/products/${productId}`);
+      const refreshed = await fetch(`${API}/admin/products/${productId}`, { cache: 'no-store' });
       const refreshedData = await refreshed.json();
       const updatedProduct = refreshedData?.data || refreshedData;
       setProducts((prev) => prev.map((p) => (p.id === productId ? updatedProduct : p)));
@@ -1009,7 +1009,7 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
     try {
-      const res = await fetch(`${API}/admin/products?limit=100&includeInactive=true`);
+      const res = await fetch(`${API}/admin/products?limit=100&includeInactive=true`, { cache: 'no-store' });
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       const arr = data?.data?.data || data?.data || data;
@@ -1113,7 +1113,7 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
       }
 
       // Re-fetch to get new images array
-      const finalRes = await fetch(`${API}/admin/products/${selectedProduct.id}`);
+      const finalRes = await fetch(`${API}/admin/products/${selectedProduct.id}`, { cache: 'no-store' });
       const finalData = await finalRes.json();
       const updated = finalData?.data || finalData;
 
