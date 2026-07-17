@@ -40,8 +40,8 @@ type Product = {
   discountPercent?: number;
   description?: string | null;
   shortDescription?: string | null;
-  imageFront: string;
-  imageBack: string;
+  imageFront: string | null;
+  imageBack: string | null;
   isLimited: boolean;
   variants?: Variant[];
   averageRating?: number;
@@ -728,11 +728,13 @@ export default function CollectionSection() {
               : [];
 
         const formattedProducts: Product[] = items.map((item: any) => {
+          const allImages: any[] = item.images ?? [];
           const frontImg =
-            item.images?.find((img: any) => img.isPrimary)?.url ||
-            "/src/assets/tshirt-designs/Vintage-front.jpg";
+            allImages.find((img: any) => img.isPrimary)?.url ||
+            allImages[0]?.url ||
+            null;
           const backImg =
-            item.images?.find((img: any) => !img.isPrimary)?.url || frontImg;
+            allImages.find((img: any) => !img.isPrimary)?.url || frontImg;
 
           return {
             id: item.variants?.[0]?.id || item.id,
