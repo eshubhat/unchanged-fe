@@ -92,8 +92,8 @@ function ProductCard({
       id: product.id as number,
       title: product.title,
       price: product.price,
-      imageFront: product.imageFront,
-      imageBack: product.imageBack,
+      imageFront: product.imageFront as string,
+      imageBack: product.imageBack as string,
       isLimited: product.isLimited,
     }, 1);
     setAdded(true);
@@ -143,8 +143,8 @@ function ProductCard({
         <button
           onClick={handleQuickAdd}
           className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 ${added
-              ? "bg-green-600 text-white"
-              : "bg-[#141414] text-white hover:bg-[#ef4444]"
+            ? "bg-green-600 text-white"
+            : "bg-[#141414] text-white hover:bg-[#ef4444]"
             }`}
         >
           {added ? (
@@ -234,7 +234,7 @@ function ProductModal({
   const [sizeError, setSizeError] = useState(false);
   const [imgIndex, setImgIndex] = useState(0);
 
-  const images = [product.imageFront, product.imageBack || product.imageFront].filter(Boolean);
+  const images = [product.imageFront, product.imageBack || product.imageFront].filter(Boolean) as string[];
 
   // Build a size → variant map
   const sizeMap = new Map<ProductSize, Variant>();
@@ -317,8 +317,8 @@ function ProductModal({
       id: variantId as number,
       title: product.title,
       price: product.price,
-      imageFront: product.imageFront,
-      imageBack: product.imageBack,
+      imageFront: product.imageFront as string,
+      imageBack: product.imageBack as string,
       isLimited: product.isLimited,
       size: selectedSize ?? undefined,
       maxStock: selectedVariant ? getAvailableQty(selectedVariant) : 10,
