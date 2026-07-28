@@ -11,12 +11,12 @@ export default function CartPage() {
     setCartItems(getCart());
   }, []);
 
-  const handleRemove = (id: number, size?: string) => {
+  const handleRemove = (id: string, size?: string) => {
     removeFromCart(id, size);
     setCartItems(getCart());
   };
 
-  const handleUpdateQuantity = (id: number, quantity: number, size?: string) => {
+  const handleUpdateQuantity = (id: string, quantity: number, size?: string) => {
     updateCartQuantity(id, quantity, size);
     setCartItems(getCart());
   };
@@ -57,7 +57,7 @@ export default function CartPage() {
               </div>
 
               {cartItems.map((item) => (
-                <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 py-6 border-b border-stone-100 last:border-0 items-center">
+                <div key={`${item.id}-${item.size ?? 'nosize'}`} className="grid grid-cols-1 md:grid-cols-12 gap-4 py-6 border-b border-stone-100 last:border-0 items-center">
                   <div className="col-span-1 md:col-span-6 flex gap-4 items-center">
                     <div className="w-20 h-24 bg-stone-100 flex-shrink-0 relative overflow-hidden">
                       <img src={item.imageFront} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
