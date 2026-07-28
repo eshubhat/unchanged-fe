@@ -4,10 +4,62 @@ function getToken(): string | null {
   return localStorage.getItem('unchanged_token');
 }
 
+function clearAuthState(): void {
+  localStorage.removeItem('unchanged_token');
+  localStorage.removeItem('unchanged_user');
+  localStorage.removeItem('unchanged_has_address');
+}
+
+// ─── Token Refresh ─────────────────────────────────────────────────────────
+
+// Shared promise so concurrent 401s only trigger ONE refresh call.
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',   // send the httpOnly refresh_token cookie
+      });
+
+      if (!res.ok) {
+        clearAuthState();
+        return null;
+      }
+
+      const json = await res.json();
+      // Unwrap the TransformInterceptor envelope if present
+      const data = json?.success === true ? json.data : json;
+      const newToken: string | null = data?.accessToken ?? null;
+
+      if (newToken) {
+        localStorage.setItem('unchanged_token', newToken);
+      } else {
+        clearAuthState();
+      }
+
+      return newToken;
+    } catch {
+      clearAuthState();
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+
+  return refreshInFlight;
+}
+
+// ─── Core Request ──────────────────────────────────────────────────────────
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
   authenticated = true,
+  _isRetry = false,   // internal: prevents infinite refresh loops
 ): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -19,13 +71,27 @@ async function request<T>(
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers,
+    credentials: 'include',   // always send cookies (needed for refresh_token cookie)
+  });
+
+  // ── Silent refresh on 401 ─────────────────────────────────────────────────
+  if (res.status === 401 && authenticated && !_isRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      // Retry the original request with the fresh token
+      return request<T>(path, options, authenticated, true);
+    }
+    // Refresh failed — session is dead
+    throw new Error('Your session has expired. Please log in again.');
+  }
 
   if (!res.ok) {
     let message = `Request failed: ${res.status}`;
     try {
       const errBody = await res.json();
-      // The backend may wrap error details in { message } or { data: { message } }
       message = errBody?.message ?? errBody?.data?.message ?? message;
     } catch (_) {}
     throw new Error(message);
@@ -36,15 +102,15 @@ async function request<T>(
 
   const json = await res.json();
 
-  // The backend's TransformInterceptor wraps every success response as:
+  // Unwrap the backend's TransformInterceptor envelope:
   //   { success: true, data: <payload>, timestamp: "..." }
-  // Unwrap it transparently so callers always receive the real payload.
   if (json && typeof json === 'object' && json.success === true && 'data' in json) {
     return json.data as T;
   }
 
   return json as T;
 }
+
 
 // ─── Auth ──────────────────────────────────────────────────────────────────
 
