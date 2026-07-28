@@ -1,5 +1,5 @@
 export type CartItem = {
-  id: number;
+  id: string;   // UUID string — product or variant ID
   title: string;
   price: string;
   imageFront: string;
@@ -46,7 +46,7 @@ export const addToCart = (product: Omit<CartItem, 'quantity'>, quantity = 1) => 
   window.dispatchEvent(new Event('cartUpdated'));
 };
 
-export const removeFromCart = (productId: number, size?: string) => {
+export const removeFromCart = (productId: string, size?: string) => {
   const cart = getCart();
   const updatedCart = cart.filter(
     item => !(item.id === productId && item.size === size)
@@ -55,7 +55,7 @@ export const removeFromCart = (productId: number, size?: string) => {
   window.dispatchEvent(new Event('cartUpdated'));
 };
 
-export const updateCartQuantity = (productId: number, quantity: number, size?: string) => {
+export const updateCartQuantity = (productId: string, quantity: number, size?: string) => {
   const cart = getCart();
   const item = cart.find(item => item.id === productId && item.size === size);
   if (item) {

@@ -89,7 +89,7 @@ function ProductCard({
       return;
     }
     addToCart({
-      id: product.id as number,
+      id: String(product.id),
       title: product.title,
       price: product.price,
       imageFront: product.imageFront as string,
@@ -310,11 +310,11 @@ function ProductModal({
     }
 
     const variantId = selectedVariant
-      ? selectedVariant.id
-      : (product.id as number);
+      ? String(selectedVariant.id)
+      : String(product.id);
 
     return {
-      id: variantId as number,
+      id: variantId,
       title: product.title,
       price: product.price,
       imageFront: product.imageFront as string,
