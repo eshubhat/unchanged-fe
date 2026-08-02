@@ -212,6 +212,8 @@ export default function CheckoutPage() {
         });
         sessionStorage.setItem("pending_order_id", order.id);
         sessionStorage.setItem("pending_order_amount", String(order.totalAmount));
+        sessionStorage.setItem("pending_order_subtotal", String(order.subtotal));
+        sessionStorage.setItem("pending_order_shipping", String(order.shippingCharge));
         navigate("/payment");
         return;
       }
@@ -226,6 +228,8 @@ export default function CheckoutPage() {
       });
       sessionStorage.setItem("pending_order_id", order.id);
       sessionStorage.setItem("pending_order_amount", String(order.totalAmount));
+      sessionStorage.setItem("pending_order_subtotal", String(order.subtotal));
+      sessionStorage.setItem("pending_order_shipping", String(order.shippingCharge));
       navigate("/payment");
 
     } catch (err: unknown) {
@@ -268,9 +272,24 @@ export default function CheckoutPage() {
         ))}
       </div>
       <div className="border-t border-stone-200 my-4" />
-      <div className="flex justify-between font-bold text-lg">
-        <span>Total</span>
-        <span>₹{subtotal.toLocaleString("en-IN")}</span>
+      <div className="flex flex-col gap-2 mb-4 text-sm">
+        <div className="flex justify-between text-stone-600">
+          <span>Subtotal</span>
+          <span>₹{subtotal.toLocaleString("en-IN")}</span>
+        </div>
+        <div className="flex justify-between text-stone-600">
+          <span>Processing Fee (2%)</span>
+          <span>₹{Math.round(subtotal * 0.02).toLocaleString("en-IN")}</span>
+        </div>
+        <div className="flex justify-between text-emerald-600">
+          <span>Shipping</span>
+          <span className="font-medium">Free</span>
+        </div>
+      </div>
+      <div className="border-t border-stone-200 my-4" />
+      <div className="flex justify-between font-bold text-lg text-stone-900">
+        <span>Total <span className="text-xs font-normal text-stone-400">(incl. GST)</span></span>
+        <span>₹{(subtotal + Math.round(subtotal * 0.02)).toLocaleString("en-IN")}</span>
       </div>
 
       {/* ── Saved addresses quick summary ─── */}

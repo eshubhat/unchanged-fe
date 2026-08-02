@@ -35,6 +35,12 @@ export default function PaymentPage() {
   const [orderAmount] = useState<number>(() =>
     Number(sessionStorage.getItem("pending_order_amount") ?? 0)
   );
+  const [orderSubtotal] = useState<number>(() =>
+    Number(sessionStorage.getItem("pending_order_subtotal") ?? 0)
+  );
+  const [orderShipping] = useState<number>(() =>
+    Number(sessionStorage.getItem("pending_order_shipping") ?? 0)
+  );
 
   const [status, setStatus] = useState<
     "idle" | "loading" | "verifying" | "error"
@@ -146,12 +152,27 @@ export default function PaymentPage() {
 
         {/* Order total */}
         <div className="bg-stone-50 p-4 mb-8 text-left border border-stone-100 rounded-sm">
-          <div className="flex justify-between font-bold text-lg">
-            <span>Total Payable:</span>
+          <div className="flex flex-col gap-2 mb-3 text-sm">
+            <div className="flex justify-between text-stone-600">
+              <span>Subtotal</span>
+              <span>₹{(orderSubtotal || orderAmount).toLocaleString("en-IN")}</span>
+            </div>
+            <div className="flex justify-between text-stone-600">
+              <span>Processing Fee (2%)</span>
+              <span>₹{Math.round((orderSubtotal || orderAmount) * 0.02).toLocaleString("en-IN")}</span>
+            </div>
+            <div className="flex justify-between text-emerald-600">
+              <span>Shipping</span>
+              <span className="font-medium">{orderShipping > 0 ? `₹${orderShipping.toLocaleString("en-IN")}` : "Free"}</span>
+            </div>
+          </div>
+          <div className="border-t border-stone-200 my-3" />
+          <div className="flex justify-between font-bold text-lg text-stone-900">
+            <span>Total Payable <span className="text-xs font-normal text-stone-400">(incl. GST)</span></span>
             <span>₹{orderAmount.toLocaleString("en-IN")}</span>
           </div>
           {orderId && (
-            <p className="text-xs text-stone-400 mt-1">
+            <p className="text-xs text-stone-400 mt-2">
               Order ID: {orderId.slice(0, 8)}…
             </p>
           )}
