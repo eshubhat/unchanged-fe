@@ -6,7 +6,6 @@ import {
   cancelOrder,
   type Order,
   type PaginatedOrders,
-  type OrderItem,
   type ProductSnapshot,
 } from "../../utils/api";
 import {
@@ -215,40 +214,40 @@ function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
 
 // ─── Price Breakdown ──────────────────────────────────────────────────────────
 
-function PriceBreakdown({ order }: { order: Order }) {
-  return (
-    <div className="bg-stone-50 border border-stone-100 rounded-sm p-4 flex flex-col gap-2 text-sm">
-      <div className="flex justify-between text-stone-600">
-        <span>Subtotal</span><span>{fmt(order.subtotal)}</span>
-      </div>
-      {Number(order.shippingCharge) > 0 && (
-        <div className="flex justify-between text-stone-600">
-          <span>Shipping</span><span>{fmt(order.shippingCharge)}</span>
-        </div>
-      )}
-      {Number(order.shippingCharge) === 0 && (
-        <div className="flex justify-between text-emerald-600">
-          <span>Shipping</span><span className="font-medium">Free</span>
-        </div>
-      )}
-      {Number(order.taxAmount) > 0 && (
-        <div className="flex justify-between text-stone-600">
-          <span>Processing Fee (2%)</span><span>{fmt(order.taxAmount)}</span>
-        </div>
-      )}
-      {Number(order.discountAmount) > 0 && (
-        <div className="flex justify-between text-emerald-600">
-          <span>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</span>
-          <span>−{fmt(order.discountAmount)}</span>
-        </div>
-      )}
-      <div className="flex justify-between font-bold text-stone-900 pt-2 border-t border-stone-200 text-base">
-        <span>Total <span className="text-xs font-normal text-stone-400">(incl. GST)</span></span>
-        <span>{fmt(order.totalAmount)}</span>
-      </div>
-    </div>
-  );
-}
+// function PriceBreakdown({ order }: { order: Order }) {
+//   return (
+//     <div className="bg-stone-50 border border-stone-100 rounded-sm p-4 flex flex-col gap-2 text-sm">
+//       <div className="flex justify-between text-stone-600">
+//         <span>Subtotal</span><span>{fmt(order.subtotal)}</span>
+//       </div>
+//       {Number(order.shippingCharge) > 0 && (
+//         <div className="flex justify-between text-stone-600">
+//           <span>Shipping</span><span>{fmt(order.shippingCharge)}</span>
+//         </div>
+//       )}
+//       {Number(order.shippingCharge) === 0 && (
+//         <div className="flex justify-between text-emerald-600">
+//           <span>Shipping</span><span className="font-medium">Free</span>
+//         </div>
+//       )}
+//       {Number(order.taxAmount) > 0 && (
+//         <div className="flex justify-between text-stone-600">
+//           <span>Processing Fee (2%)</span><span>{fmt(order.taxAmount)}</span>
+//         </div>
+//       )}
+//       {Number(order.discountAmount) > 0 && (
+//         <div className="flex justify-between text-emerald-600">
+//           <span>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</span>
+//           <span>−{fmt(order.discountAmount)}</span>
+//         </div>
+//       )}
+//       <div className="flex justify-between font-bold text-stone-900 pt-2 border-t border-stone-200 text-base">
+//         <span>Total <span className="text-xs font-normal text-stone-400">(incl. GST)</span></span>
+//         <span>{fmt(order.totalAmount)}</span>
+//       </div>
+//     </div>
+//   );
+// }
 
 // ─── Status Timeline ──────────────────────────────────────────────────────────
 
