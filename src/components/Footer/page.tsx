@@ -34,8 +34,14 @@ export default function Footer() {
           <div className="flex flex-col gap-6">
             <h3 className="font-extrabold uppercase">Connect</h3>
             <ul className="flex flex-col gap-4 text-sm text-stone-600">
-              <li><a href="https://www.instagram.com/theunchangedstudios/" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors hover:underline!">Instagram</a></li>
-              <li><a href="mailto:contact@theunchangedstudios.com" className="hover:text-black transition-colors hover:underline!">Email Support</a></li>
+              <li>
+                <a href="https://www.instagram.com/theunchangedstudios/" className="md:hidden hover:text-black transition-colors hover:underline!">Instagram</a>
+                <a href="https://www.instagram.com/theunchangedstudios/" target="_blank" rel="noopener noreferrer" className="hidden md:inline hover:text-black transition-colors hover:underline!">Instagram</a>
+              </li>
+              <li>
+                <a href="mailto:contact@theunchangedstudios.com" className="md:hidden hover:text-black transition-colors hover:underline!">Email Support</a>
+                <a href="https://mail.google.com/mail/?view=cm&fs=1&to=contact@theunchangedstudios.com" target="_blank" rel="noopener noreferrer" className="hidden md:inline hover:text-black transition-colors hover:underline!">Email Support</a>
+              </li>
               <li><a href="#" className="hover:text-black transition-colors hover:underline!">Brand Philosophy</a></li>
             </ul>
           </div>
