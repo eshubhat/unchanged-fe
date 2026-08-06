@@ -4,7 +4,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import companyLogo from "../../assets/company_logo-cropped.svg";
 import { lenis } from "../../utils/lenis"
-import { Search, ShoppingCart } from "lucide-react";
+import { Search, ShoppingCart, Package, User } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getCart } from "../../utils/cart";
 
@@ -36,6 +36,7 @@ export default function Navbar() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<any>(null);
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -51,6 +52,23 @@ export default function Navbar() {
     window.addEventListener('cartUpdated', updateCartCount);
     return () => window.removeEventListener('cartUpdated', updateCartCount);
   }, []);
+
+  useEffect(() => {
+    const syncUser = () => {
+      const userStr = localStorage.getItem("unchanged_user");
+      if (userStr) {
+        try {
+          setLoggedInUser(JSON.parse(userStr));
+        } catch (_) {}
+      } else {
+        setLoggedInUser(null);
+      }
+    };
+
+    syncUser(); // Run immediately on mount / route change
+    window.addEventListener("authStateChanged", syncUser);
+    return () => window.removeEventListener("authStateChanged", syncUser);
+  }, [location.pathname]);
 
   // Debounced resize
   useEffect(() => {
@@ -330,19 +348,39 @@ export default function Navbar() {
             />
           </div>
 
-          <Link to="/cart" className="relative flex items-center">
-            <ShoppingCart size={18} />
-            {cartCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-black text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
-                {cartCount}
-              </span>
-            )}
-          </Link>
+          <div className="flex items-center space-x-16 gap-6">
+            <Link to="/profile" className="relative flex items-center" title="My Profile">
+              {loggedInUser ? (
+                loggedInUser.avatarUrl ? (
+                  <img src={loggedInUser.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover border border-stone-200" style={{ width: 20, height: 20 }} />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-700" style={{ width: 20, height: 20 }}>
+                    {loggedInUser.firstName?.[0]?.toUpperCase() ?? "U"}
+                  </div>
+                )
+              ) : (
+                <User size={18} />
+              )}
+            </Link>
+
+            <Link to="/orders" className="relative flex items-center" title="My Orders">
+              <Package size={18} />
+            </Link>
+
+            <Link to="/cart" className="relative flex items-center">
+              <ShoppingCart size={18} />
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-black text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          </div>
         </div>
 
         {/* Logo */}
         <div className="navbar-logo" ref={navbarLogoRef}>
-          <a href="#"><img src={companyLogo} alt="Logo" /></a>
+          <Link to="/"><img src={companyLogo} alt="Logo" /></Link>
         </div>
 
         {/* Mobile — hamburger (absolute left) */}
@@ -400,6 +438,24 @@ export default function Navbar() {
         </nav>
 
         <div className="navbar-mobile-actions">
+          <Link to="/profile" onClick={() => setMenuOpen(false)}>
+            {loggedInUser ? (
+              loggedInUser.avatarUrl ? (
+                <img src={loggedInUser.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover border border-stone-200" style={{ width: 20, height: 20 }} />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-700" style={{ width: 20, height: 20 }}>
+                  {loggedInUser.firstName?.[0]?.toUpperCase() ?? "U"}
+                </div>
+              )
+            ) : (
+              <User size={20} />
+            )}
+            <span>Profile</span>
+          </Link>
+          <Link to="/orders" onClick={() => setMenuOpen(false)}>
+            <Package size={20} />
+            <span>My Orders</span>
+          </Link>
           <Link to="/cart" onClick={() => setMenuOpen(false)}>
             <ShoppingCart size={20} />
             <span>Cart</span>
