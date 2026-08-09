@@ -40,6 +40,7 @@ type Product = {
   discountPercent?: number;
   description?: string | null;
   shortDescription?: string | null;
+  features?: string[];
   imageFront: string | null;
   imageBack: string | null;
   isLimited: boolean;
@@ -493,11 +494,20 @@ function ProductModal({
               </p>
 
               {/* Description */}
-              {(product.description || product.shortDescription) && (
+              {(product.description || product.shortDescription || (product.features && product.features.length > 0)) && (
                 <div className="border-t border-stone-200 pt-4">
-                  <p className="text-sm text-stone-600 leading-relaxed">
-                    {product.shortDescription || product.description}
-                  </p>
+                  {(product.shortDescription || product.description) && (
+                    <p className="text-sm text-stone-600 leading-relaxed mb-3">
+                      {product.shortDescription || product.description}
+                    </p>
+                  )}
+                  {product.features && product.features.length > 0 && (
+                    <ul className="list-disc pl-4 text-sm text-stone-600 space-y-1">
+                      {product.features.map((f, i) => (
+                        <li key={i}>{f}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
 
@@ -696,7 +706,7 @@ function ProductModal({
 
               {/* Delivery note */}
               <p className="text-[11px] text-stone-400 flex items-center gap-1.5 -mt-1">
-                <span>📦</span> Usually ships in 2–5 business days
+                <span>📦</span> Usually ships in 3–6 business days
               </p>
             </div>
           </div>
@@ -749,6 +759,7 @@ export default function CollectionSection() {
             discountPercent: item.discountPercent ?? 0,
             description: item.description,
             shortDescription: item.shortDescription,
+            features: item.features,
             imageFront: frontImg,
             imageBack: backImg,
             isLimited: item.isFeatured,

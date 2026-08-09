@@ -25,7 +25,11 @@ import {
   Calendar,
   Clock,
   BarChart2,
+  RotateCcw,
+  CheckCheck,
+  XCircle,
 } from "lucide-react";
+import { getMe, storeAuthTokens, adminGetReturnRequests, adminResolveReturnRequest, type ReturnRequest } from "../../utils/api";
 
 const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -59,6 +63,7 @@ interface Product {
   isLimitedStock?: boolean;
   description?: string;
   shortDescription?: string;
+  features?: string[];
   variants?: Variant[];
   images?: { id: string; url: string; isPrimary: boolean }[];
 }
@@ -159,6 +164,8 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
   const [sellingPrice, setSellingPrice] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [description, setDescription] = useState("");
+  const [features, setFeatures] = useState<string[]>([]);
+  const [newFeature, setNewFeature] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isLimitedStock, setIsLimitedStock] = useState(false);
   const [frontImage, setFrontImage] = useState<File | null>(null);
@@ -269,6 +276,7 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
           isFeatured,
           isLimitedStock: isLimitedStock || autoIsLimited,
           description: description || undefined,
+          features: features.length > 0 ? features : undefined,
           variants,
         }),
       });
@@ -294,6 +302,7 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
 
       onToast("Product created successfully!", "success");
       setName(""); setSellingPrice(""); setBasePrice(""); setDescription("");
+      setFeatures([]); setNewFeature("");
       setIsFeatured(false); setIsLimitedStock(false);
       setSizeStock({ XS: "", S: "", M: "", L: "", XL: "", XXL: "" });
       setFrontImage(null); setBackImage(null);
@@ -408,6 +417,61 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
             className="admin-input resize-none" rows={3}
             placeholder="A minimalist tee for everyday wear..."
           />
+        </div>
+
+        {/* Features / Bullet Points */}
+        <div className="field-group mt-4">
+          <label className="field-label">Key Features / Bullet Points</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newFeature}
+              onChange={(e) => setNewFeature(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (newFeature.trim()) {
+                    setFeatures([...features, newFeature.trim()]);
+                    setNewFeature("");
+                  }
+                }
+              }}
+              className="admin-input flex-1"
+              placeholder="e.g. 100% Premium Cotton (Press Enter to add)"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (newFeature.trim()) {
+                  setFeatures([...features, newFeature.trim()]);
+                  setNewFeature("");
+                }
+              }}
+              disabled={!newFeature.trim()}
+              className="admin-btn-primary px-4 py-2"
+            >
+              Add
+            </button>
+          </div>
+          {features.length > 0 && (
+            <div className="mt-3 flex flex-col gap-2">
+              {features.map((f, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                  <span className="text-sm font-medium text-stone-700 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-stone-400"></div>
+                    {f}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFeatures(features.filter((_, i) => i !== idx))}
+                    className="text-stone-400 hover:text-red-500 transition-colors p-1"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-4 flex flex-col gap-4">
@@ -1604,6 +1668,7 @@ const STATUS_COLORS: Record<string, { bg: string; color: string; border: string 
   out_for_delivery: { bg: "#fdf4ff", color: "#7e22ce", border: "#e9d5ff" },
   delivered: { bg: "#f0fdf4", color: "#15803d", border: "#86efac" },
   cancelled: { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" },
+  return_requested: { bg: "#fdf4ff", color: "#86198f", border: "#f5d0fe" },
   returned: { bg: "#fafafa", color: "#57534e", border: "#e7e5e4" },
   refunded: { bg: "#fafafa", color: "#57534e", border: "#e7e5e4" },
 };
@@ -2294,6 +2359,7 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
       case 'shipped': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'delivered': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
+      case 'return_requested': return 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200';
       case 'returned': return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'refunded': return 'bg-stone-200 text-stone-800 border-stone-300';
       default: return 'bg-stone-100 text-stone-700 border-stone-200';
@@ -2407,6 +2473,9 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
                           <button onClick={() => handleStatusUpdate('delivered')} disabled={updatingStatus} className="admin-btn-primary w-full bg-emerald-600 hover:bg-emerald-700">Confirm Delivery</button>
                         )}
                         {orderDetail.status === 'delivered' && (
+                          <button onClick={() => handleStatusUpdate('return_requested')} disabled={updatingStatus} className="admin-btn-secondary w-full border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50">Mark Return Requested</button>
+                        )}
+                        {orderDetail.status === 'return_requested' && (
                           <button onClick={() => handleStatusUpdate('returned')} disabled={updatingStatus} className="admin-btn-secondary w-full border-orange-300 text-orange-700 hover:bg-orange-50">Process Return</button>
                         )}
                         {orderDetail.status === 'returned' && (
@@ -2462,9 +2531,228 @@ function OrdersManagementTab({ onToast }: { onToast: (msg: string, type: "succes
   );
 }
 
+// ─── Return Requests Tab ──────────────────────────────────────────────────────
+
+type ReturnStatusFilter = 'ALL' | 'REQUESTED' | 'APPROVED' | 'REJECTED';
+const RETURN_STATUS_FILTERS: { label: string; value: ReturnStatusFilter }[] = [
+  { label: 'All', value: 'ALL' },
+  { label: 'Pending', value: 'REQUESTED' },
+  { label: 'Approved', value: 'APPROVED' },
+  { label: 'Rejected', value: 'REJECTED' },
+];
+function returnStatusBadge(status: string) {
+  switch (status) {
+    case 'REQUESTED': return { bg: '#fffbeb', color: '#92400e', border: '#fde68a', label: 'Pending Review' };
+    case 'APPROVED':  return { bg: '#f0fdf4', color: '#166534', border: '#bbf7d0', label: 'Approved' };
+    case 'REJECTED':  return { bg: '#fef2f2', color: '#991b1b', border: '#fecaca', label: 'Rejected' };
+    default:          return { bg: '#fafaf9', color: '#57534e', border: '#e7e5e4', label: status };
+  }
+}
+function parseReturnItems(description: string | null): { name: string; qty: string }[] {
+  if (!description) return [];
+  const itemsPart = description.split('|')[0].replace(/^Items:\s*/i, '').trim();
+  if (!itemsPart) return [];
+  return itemsPart.split(',').map((seg) => {
+    const match = seg.trim().match(/^(.+?)\s*[×x]\s*(\d+)$/);
+    return match ? { name: match[1].trim(), qty: match[2] } : { name: seg.trim(), qty: '1' };
+  });
+}
+
+function ReturnRequestsTab({ onToast }: { onToast: (msg: string, type: 'success' | 'error') => void }) {
+  const [requests, setRequests] = useState<ReturnRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<ReturnStatusFilter>('REQUESTED');
+  const [resolving, setResolving] = useState<Record<string, 'approve' | 'reject' | null>>({});
+  const [refundAmounts, setRefundAmounts] = useState<Record<string, string>>({});
+  const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
+
+  const fetchRequests = useCallback(async () => {
+    setLoading(true);
+    try {
+      const all = await adminGetReturnRequests();
+      setRequests(all);
+    } catch (err: any) {
+      onToast(err.message || 'Failed to load return requests', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [onToast]);
+
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  const filtered = requests.filter((r) => filter === 'ALL' || r.status === filter);
+
+  const handleResolve = async (requestId: string, action: 'approved' | 'rejected') => {
+    const refundRaw = refundAmounts[requestId] ?? '';
+    const adminNote = adminNotes[requestId]?.trim() ?? '';
+    if (action === 'approved' && (!refundRaw || isNaN(Number(refundRaw)) || Number(refundRaw) <= 0)) {
+      onToast('Please enter a valid refund amount before approving.', 'error');
+      return;
+    }
+    setSubmitting((prev) => ({ ...prev, [requestId]: true }));
+    try {
+      await adminResolveReturnRequest(requestId, {
+        action,
+        adminNote: adminNote || undefined,
+        refundAmount: action === 'approved' ? Number(refundRaw) : undefined,
+      });
+      onToast(
+        action === 'approved'
+          ? `Return approved — refund of ₹${Number(refundRaw).toLocaleString('en-IN')} will be processed.`
+          : 'Return request rejected.',
+        'success',
+      );
+      setResolving((prev) => ({ ...prev, [requestId]: null }));
+      await fetchRequests();
+    } catch (err: any) {
+      onToast(err.message || 'Failed to resolve return request', 'error');
+    } finally {
+      setSubmitting((prev) => ({ ...prev, [requestId]: false }));
+    }
+  };
+
+  const pendingCount = requests.filter((r) => r.status === 'REQUESTED').length;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Header */}
+      <div style={{ background: 'linear-gradient(135deg, #4c0519 0%, #881337 100%)', borderRadius: 16, padding: '1.5rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', color: 'white' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 12, padding: '0.75rem', display: 'flex' }}>
+            <RotateCcw size={24} style={{ color: '#fda4af' }} />
+          </div>
+          <div>
+            <p style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', opacity: 0.65, marginBottom: 2 }}>Customer Returns</p>
+            <p style={{ fontSize: '1.25rem', fontWeight: 800, lineHeight: 1 }}>Return Requests</p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {pendingCount > 0 && (
+            <div style={{ background: 'rgba(253,164,175,0.2)', border: '1px solid rgba(253,164,175,0.4)', borderRadius: 999, padding: '0.375rem 0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fda4af', display: 'inline-block' }} />
+              <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>{pendingCount} pending review</span>
+            </div>
+          )}
+          <button onClick={fetchRequests} disabled={loading} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white', borderRadius: 8, padding: '0.5rem 1rem', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div style={{ display: 'flex', gap: '0.375rem', background: 'rgba(120,113,108,0.1)', padding: 4, borderRadius: 12, width: 'fit-content' }}>
+        {RETURN_STATUS_FILTERS.map((f) => {
+          const count = f.value === 'ALL' ? requests.length : requests.filter((r) => r.status === f.value).length;
+          return (
+            <button key={f.value} onClick={() => setFilter(f.value)} style={{ padding: '0.4rem 1rem', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, background: filter === f.value ? 'white' : 'transparent', color: filter === f.value ? '#1c1917' : '#78716c', boxShadow: filter === f.value ? '0 1px 4px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5 }}>
+              {f.label}
+              {count > 0 && <span style={{ fontSize: '0.65rem', fontWeight: 800, background: '#e7e5e4', color: '#78716c', borderRadius: 999, padding: '1px 6px' }}>{count}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem 0', color: '#a8a29e' }}>
+          <Loader2 size={32} className="animate-spin" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ background: 'white', border: '1px solid #e7e5e4', borderRadius: 14, padding: '4rem 2rem', textAlign: 'center' }}>
+          <RotateCcw size={40} style={{ margin: '0 auto 12px', opacity: 0.2 }} />
+          <p style={{ fontSize: '0.875rem', color: '#a8a29e', fontWeight: 500 }}>
+            {filter === 'REQUESTED' ? 'No pending return requests — all caught up!' : `No ${filter.toLowerCase()} return requests.`}
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          {filtered.map((req) => {
+            const badge = returnStatusBadge(req.status);
+            const items = parseReturnItems(req.description);
+            const notesPart = req.description?.split('| Notes:')[1]?.trim();
+            const isResolving = resolving[req.id];
+            const isSubmitting = submitting[req.id];
+            return (
+              <div key={req.id} style={{ background: 'white', border: '1px solid #e7e5e4', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: 4, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 10px', borderRadius: 999, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{badge.label}</span>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1c1917', fontFamily: 'monospace' }}>{req.order?.orderNumber ?? req.orderId.slice(0, 8).toUpperCase()}</span>
+                    </div>
+                    {req.user && (
+                      <p style={{ fontSize: '0.8rem', color: '#57534e', marginBottom: 2 }}>
+                        <span style={{ fontWeight: 600 }}>{req.user.firstName}{req.user.lastName ? ` ${req.user.lastName}` : ''}</span>
+                        <span style={{ color: '#a8a29e', marginLeft: 6 }}>{req.user.email}</span>
+                      </p>
+                    )}
+                    <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1c1917', marginBottom: items.length ? 6 : 0 }}>{req.reason}</p>
+                    {items.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: notesPart ? 6 : 0 }}>
+                        {items.map((item, i) => (
+                          <span key={i} style={{ fontSize: '0.68rem', fontWeight: 600, background: '#fafaf9', border: '1px solid #e7e5e4', borderRadius: 6, padding: '2px 8px', color: '#57534e' }}>
+                            {item.name} × {item.qty}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {notesPart && <p style={{ fontSize: '0.75rem', color: '#78716c', fontStyle: 'italic', marginTop: 2 }}>"{notesPart}"</p>}
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <p style={{ fontSize: '0.7rem', color: '#a8a29e' }}>{new Date(req.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    {req.refundAmount && req.status === 'APPROVED' && <p style={{ fontSize: '0.78rem', fontWeight: 700, color: '#15803d', marginTop: 4 }}>Refund: ₹{Number(req.refundAmount).toLocaleString('en-IN')}</p>}
+                    {req.adminNote && req.status !== 'REQUESTED' && <p style={{ fontSize: '0.7rem', color: '#78716c', maxWidth: 180, marginTop: 2, textAlign: 'right' }}>{req.adminNote}</p>}
+                  </div>
+                </div>
+
+                {req.status === 'REQUESTED' && (
+                  <div style={{ borderTop: '1px solid #f5f5f4', background: '#fafaf9', padding: '0.875rem 1.25rem' }}>
+                    {!isResolving ? (
+                      <div style={{ display: 'flex', gap: '0.625rem' }}>
+                        <button onClick={() => setResolving((prev) => ({ ...prev, [req.id]: 'approve' }))} style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: 8, border: 'none', background: '#15803d', color: 'white', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                          <CheckCheck size={14} /> Approve Return
+                        </button>
+                        <button onClick={() => setResolving((prev) => ({ ...prev, [req.id]: 'reject' }))} style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: 8, border: '1.5px solid #fecaca', background: 'white', color: '#dc2626', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                          <XCircle size={14} /> Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                        <p style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#57534e' }}>{isResolving === 'approve' ? '✅ Approve Return' : '❌ Reject Return'}</p>
+                        {isResolving === 'approve' && (
+                          <div>
+                            <label style={{ fontSize: '0.68rem', fontWeight: 700, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }}>Refund Amount (₹) <span style={{ color: '#dc2626' }}>*</span></label>
+                            <input type="number" min="0" step="0.01" placeholder={`e.g. ${req.order?.totalAmount ?? '0'}`} value={refundAmounts[req.id] ?? ''} onChange={(e) => setRefundAmounts((prev) => ({ ...prev, [req.id]: e.target.value }))} className="admin-input" style={{ maxWidth: 200 }} />
+                          </div>
+                        )}
+                        <div>
+                          <label style={{ fontSize: '0.68rem', fontWeight: 700, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }}>Admin Note <span style={{ color: '#a8a29e', fontWeight: 400 }}>(optional)</span></label>
+                          <textarea rows={2} placeholder={isResolving === 'approve' ? 'e.g. Refund credited in 5–7 business days.' : 'Reason for rejection…'} value={adminNotes[req.id] ?? ''} onChange={(e) => setAdminNotes((prev) => ({ ...prev, [req.id]: e.target.value }))} className="admin-input" style={{ resize: 'none' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: 2 }}>
+                          <button onClick={() => setResolving((prev) => ({ ...prev, [req.id]: null }))} disabled={isSubmitting} style={{ padding: '0.5rem 0.875rem', borderRadius: 8, border: '1px solid #e7e5e4', background: 'white', color: '#57534e', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Cancel</button>
+                          <button onClick={() => handleResolve(req.id, isResolving === 'approve' ? 'approved' : 'rejected')} disabled={isSubmitting} style={{ flex: 1, padding: '0.5rem 0.875rem', borderRadius: 8, border: 'none', background: isResolving === 'approve' ? '#15803d' : '#dc2626', color: 'white', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontSize: '0.78rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, opacity: isSubmitting ? 0.7 : 1 }}>
+                            {isSubmitting && <Loader2 size={13} className="animate-spin" />}
+                            {isSubmitting ? 'Processing…' : isResolving === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Admin Page ─────────────────────────────────────────────────────────
 
-type Tab = "add" | "stock" | "edit" | "orders" | "dashboard";
+type Tab = "add" | "stock" | "edit" | "orders" | "dashboard" | "returns";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "add", label: "Add Product", icon: <Plus size={16} /> },
@@ -2472,7 +2760,9 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "edit", label: "Edit Products", icon: <Edit3 size={16} /> },
   { id: "orders", label: "Orders", icon: <Package size={16} /> },
   { id: "dashboard", label: "Sales Dashboard", icon: <BarChart2 size={16} /> },
+  { id: "returns", label: "Returns", icon: <RotateCcw size={16} /> },
 ];
+
 
 // ─── Admin auth gate ─────────────────────────────────────────────────────────
 
@@ -2501,21 +2791,18 @@ function useAdminAuth(): AuthState {
     const token = localStorage.getItem("unchanged_token");
     if (!token) { setState("unauthenticated"); return; }
 
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error("Unauthorized");
-        return r.json();
-      })
-      .then((res) => {
-        const user = res.data?.user || res.user;
+    // Use getMe() from api.ts so the silent-refresh interceptor fires
+    // automatically if the access token has already expired.
+    getMe()
+      .then(({ user }) => {
         const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
         setState(isAdmin ? "authorized" : "unauthorized");
       })
       .catch(() => {
+        // getMe threw even after a refresh attempt — session is truly dead
         localStorage.removeItem("unchanged_token");
         localStorage.removeItem("unchanged_user");
+        localStorage.removeItem("unchanged_token_expiry");
         setState("unauthenticated");
       });
   }, []);
@@ -2545,6 +2832,7 @@ export default function AdminPage() {
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",  // ensure refresh cookie is received
         body: JSON.stringify({ email, password }),
       });
       const json = await res.json();
@@ -2554,8 +2842,12 @@ export default function AdminPage() {
       // The backend wraps responses in { success: true, data: ... }
       const payload = json.success && json.data ? json.data : json;
 
-      localStorage.setItem("unchanged_token", payload.accessToken);
-      localStorage.setItem("unchanged_user", JSON.stringify(payload.user));
+      // Use storeAuthTokens to persist token + expiry timestamp in one place
+      storeAuthTokens({
+        accessToken: payload.accessToken,
+        expiresIn: payload.expiresIn,
+        user: payload.user,
+      });
       window.location.reload();
     } catch (err: any) {
       setLoginError(err.message);
@@ -2806,6 +3098,7 @@ export default function AdminPage() {
           {activeTab === "edit" && <EditProductTab onToast={handleToast} />}
           {activeTab === "orders" && <OrdersManagementTab onToast={handleToast} />}
           {activeTab === "dashboard" && <SalesDashboardTab onToast={handleToast} />}
+          {activeTab === "returns" && <ReturnRequestsTab onToast={handleToast} />}
         </div>
       </div>
 

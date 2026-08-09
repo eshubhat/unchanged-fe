@@ -6,6 +6,7 @@ import {
   getMe,
   getAddresses,
   initiateGoogleLogin,
+  storeAuthTokens,
   type UserInfo,
   type SavedAddress,
 } from "../../utils/api";
@@ -121,12 +122,9 @@ export default function ProfilePage() {
     try {
       if (isLogin) {
         const tokens = await loginUser({ email: auth.email, password: auth.password });
-        localStorage.setItem("unchanged_token", tokens.accessToken ?? "");
+        storeAuthTokens(tokens);
         const userObj = tokens.user ?? null;
-        if (userObj) {
-          localStorage.setItem("unchanged_user", JSON.stringify(userObj));
-          setLoggedInUser(userObj);
-        }
+        if (userObj) setLoggedInUser(userObj);
         await fetchAddresses();
       } else {
         const tokens = await registerUser({
@@ -136,12 +134,9 @@ export default function ProfilePage() {
           lastName: auth.lastName || undefined,
           phone: auth.phone || undefined,
         });
-        localStorage.setItem("unchanged_token", tokens.accessToken ?? "");
+        storeAuthTokens(tokens);
         const userObj = tokens.user ?? null;
-        if (userObj) {
-          localStorage.setItem("unchanged_user", JSON.stringify(userObj));
-          setLoggedInUser(userObj);
-        }
+        if (userObj) setLoggedInUser(userObj);
         await fetchAddresses();
       }
     } catch (err: unknown) {
@@ -272,9 +267,11 @@ export default function ProfilePage() {
                     localStorage.removeItem("unchanged_token");
                     localStorage.removeItem("unchanged_user");
                     localStorage.removeItem("unchanged_has_address");
+                    localStorage.removeItem("unchanged_token_expiry");
                     setLoggedInUser(null);
                     setSavedAddresses([]);
                     setSelectedAddressId(null);
+                    window.dispatchEvent(new Event("authStateChanged"));
                   }}
                   className="mt-4 w-full text-sm font-semibold border border-stone-300 text-stone-600 hover:border-red-500 hover:text-red-500 hover:bg-red-50 transition-colors px-6 py-2.5 rounded-sm"
                 >

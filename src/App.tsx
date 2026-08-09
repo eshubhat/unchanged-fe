@@ -1,9 +1,9 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, useCallback, lazy, Suspense, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 import { setLenis } from "./utils/lenis";
-import { initAuth } from "./utils/api";
+import { initAuth, getTokenExpiryMs } from "./utils/api";
 
 import Navbar from "./components/Navbar/page";
 const Landing = lazy(() => import("./pages/Landing/page"));
@@ -34,10 +34,48 @@ import Footer from "./components/Footer/page";
 gsap.registerPlugin(ScrollTrigger);
 
 export default function App() {
+  const proactiveRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Schedule a proactive token refresh ──────────────────────────────────
+  // Fires when 90% of the token's lifetime has elapsed (i.e. with 10% left).
+  // This keeps the session alive without refreshing too eagerly.
+  const scheduleProactiveRefresh = useCallback(() => {
+    if (proactiveRefreshTimer.current) {
+      clearTimeout(proactiveRefreshTimer.current);
+      proactiveRefreshTimer.current = null;
+    }
+    const msLeft = getTokenExpiryMs();
+    if (msLeft <= 0) return; // No token / already expired — nothing to schedule
+
+    // Fire when 90% of the token's life has been consumed.
+    // Clamp: minimum 30s (avoid refresh storms), maximum 23h (sanity cap).
+    const delay = Math.min(Math.max(msLeft * 0.9, 30_000), 23 * 60 * 60 * 1000);
+
+    proactiveRefreshTimer.current = setTimeout(async () => {
+      await initAuth(); // refreshes token silently if needed
+      scheduleProactiveRefresh(); // reschedule after refresh
+    }, delay);
+  }, []); // stable — no deps, reads from localStorage at call time
+
   useEffect(() => {
-    // Silently restore auth session on hard refresh
-    initAuth();
-  }, []);
+    // Silently restore auth session on hard refresh, then start proactive refresh
+    initAuth().then(() => scheduleProactiveRefresh());
+
+    // Re-verify auth whenever the tab becomes visible again (user returns from
+    // another tab / phone lock). Without this, idle users get 401s on return.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        initAuth().then(() => scheduleProactiveRefresh());
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (proactiveRefreshTimer.current) clearTimeout(proactiveRefreshTimer.current);
+    };
+  }, [scheduleProactiveRefresh]);
+
 
   // Global Smooth Scroll Initialization
   useEffect(() => {
