@@ -4,6 +4,9 @@ import {
   getMyOrders,
   getMyOrder,
   cancelOrder,
+  requestReturn,
+  getOrderReturnRequests,
+  type ReturnRequest,
   type Order,
   type PaginatedOrders,
   type ProductSnapshot,
@@ -24,6 +27,7 @@ import {
   XCircle,
   RefreshCcw,
   ShoppingBag,
+  ChevronDown,
 } from "lucide-react";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -36,6 +40,7 @@ const STATUS_FILTERS = [
   { label: "Shipped", value: "shipped" },
   { label: "Delivered", value: "delivered" },
   { label: "Cancelled", value: "cancelled" },
+  { label: "Return Requested", value: "return_requested" },
   { label: "Returned", value: "returned" },
 ];
 
@@ -59,6 +64,7 @@ function getStatusStyle(status: string): { bg: string; text: string; dot: string
     case "out_for_delivery": return { bg: "bg-orange-50", text: "text-orange-700", dot: "bg-orange-400" };
     case "delivered": return { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" };
     case "cancelled": return { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-400" };
+    case "return_requested": return { bg: "bg-fuchsia-50", text: "text-fuchsia-700", dot: "bg-fuchsia-400" };
     case "returned": return { bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-400" };
     case "refunded": return { bg: "bg-teal-50", text: "text-teal-700", dot: "bg-teal-400" };
     default: return { bg: "bg-stone-100", text: "text-stone-600", dot: "bg-stone-400" };
@@ -84,6 +90,7 @@ function TimelineIcon({ status }: { status: string }) {
     case "shipped":
     case "out_for_delivery": return <Truck className={`${cls} text-sky-500`} />;
     case "cancelled": return <XCircle className={`${cls} text-red-400`} />;
+    case "return_requested": return <RefreshCcw className={`${cls} text-fuchsia-400`} />;
     case "returned":
     case "refunded": return <RotateCcw className={`${cls} text-rose-400`} />;
     default: return <Clock className={`${cls} text-stone-400`} />;
@@ -139,17 +146,26 @@ function SkeletonCard() {
 
 // ─── Order Card ───────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
+function OrderCard({
+  order,
+  onClick,
+  onReturnClick,
+}: {
+  order: Order;
+  onClick: () => void;
+  onReturnClick?: (e: React.MouseEvent) => void;
+}) {
   const images = (order.items ?? [])
     .map((i) => i.productSnapshot?.primaryImageUrl)
     .filter(Boolean) as string[];
 
   return (
-    <button
-      id={`order-card-${order.id}`}
-      onClick={onClick}
-      className="block w-full text-left bg-white border border-stone-200 rounded-sm p-5 hover:border-stone-400 hover:shadow-md transition-all duration-200 group"
-    >
+    <div className="block w-full text-left bg-white border border-stone-200 rounded-sm hover:border-stone-400 hover:shadow-md transition-all duration-200 group">
+      <button
+        id={`order-card-${order.id}`}
+        onClick={onClick}
+        className="w-full text-left p-5 pb-4 block"
+      >
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
         <div className="flex flex-col gap-1">
@@ -200,15 +216,35 @@ function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
             .join(" · ") || "—"}
         </p>
       </div>
+      </button>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-3 border-t border-stone-100">
-        <span className="text-xs text-stone-400">
-          {(order.items ?? []).reduce((s, i) => s + i.quantity, 0)} item(s)
-        </span>
-        <span className="font-bold text-stone-900 text-sm">{fmt(order.totalAmount)}</span>
+      <div className="flex items-center justify-between px-5 py-4 border-t border-stone-100 bg-stone-50/50 rounded-b-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400 mb-0.5">Total</span>
+            <span className="font-bold text-stone-900 text-sm leading-none">{fmt(order.totalAmount)}</span>
+          </div>
+          <div className="w-px h-6 bg-stone-200" />
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400 mb-0.5">Items</span>
+            <span className="font-semibold text-stone-700 text-sm leading-none">
+              {(order.items ?? []).reduce((s, i) => s + i.quantity, 0)}
+            </span>
+          </div>
+        </div>
+
+        {order.status === "delivered" && onReturnClick && (
+          <button
+            onClick={onReturnClick}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider border border-rose-300 text-rose-600 rounded hover:bg-rose-50 hover:border-rose-500 transition-colors"
+          >
+            <RotateCcw size={14} />
+            Return
+          </button>
+        )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -280,6 +316,318 @@ function Timeline({ history }: { history: Order["statusHistory"] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ─── Return Modal ─────────────────────────────────────────────────────────────
+
+const RETURN_REASONS = [
+  "Received damaged or defective product",
+  "Wrong item sent",
+  "Size or colour mismatch",
+  "Product not as described",
+  "Changed my mind",
+  "Missing parts or accessories",
+  "Other",
+];
+
+function ReturnModal({
+  order,
+  onClose,
+  onSubmitted,
+}: {
+  order: Order;
+  onClose: () => void;
+  onSubmitted: () => void;
+}) {
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<"items" | "reason">("items");
+
+  const toggleItem = (id: string) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedItemIds(new Set((order.items ?? []).map((i) => i.id)));
+  };
+
+  const handleNext = () => {
+    if (selectedItemIds.size === 0) {
+      setError("Please select at least one item to return.");
+      return;
+    }
+    setError(null);
+    setStep("reason");
+  };
+
+  const handleSubmit = async () => {
+    if (!reason) { setError("Please select a reason."); return; }
+    setError(null);
+    setLoading(true);
+    try {
+      // Encode selected items into description for backend storage
+      const selectedItems = (order.items ?? []).filter((i) => selectedItemIds.has(i.id));
+      const itemsSummary = selectedItems
+        .map((i) => `${i.productSnapshot?.productName ?? "Item"} × ${i.quantity}`)
+        .join(", ");
+      const description = [`Items: ${itemsSummary}`, notes.trim() ? `Notes: ${notes.trim()}` : ""]
+        .filter(Boolean)
+        .join(" | ");
+
+      await requestReturn(order.id, { reason, description });
+      onSubmitted();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to submit return request.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center px-0 sm:px-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white w-full sm:rounded-sm sm:max-w-lg shadow-2xl z-10 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 flex-shrink-0">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-stone-400 mb-0.5">Return Request</p>
+            <p className="font-bold text-stone-900 text-sm font-mono">{order.orderNumber}</p>
+          </div>
+          <button
+            id="return-modal-close"
+            onClick={onClose}
+            className="text-stone-400 hover:text-stone-800 transition-colors p-1"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex border-b border-stone-100 flex-shrink-0">
+          {(["items", "reason"] as const).map((s, i) => (
+            <div
+              key={s}
+              className={`flex-1 py-2.5 text-center text-[11px] font-bold uppercase tracking-widest ${
+                step === s ? "text-stone-900 border-b-2 border-stone-900" : "text-stone-400"
+              }`}
+            >
+              {i + 1}. {s === "items" ? "Select Items" : "Reason"}
+            </div>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {step === "items" && (
+            <div className="p-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-stone-500 font-medium">Select the items you want to return</p>
+                <button
+                  onClick={selectAll}
+                  className="text-[11px] font-bold text-stone-600 hover:text-black uppercase tracking-wider transition-colors"
+                >
+                  Select All
+                </button>
+              </div>
+
+              {(order.items ?? []).map((item) => {
+                const snap = item.productSnapshot ?? ({} as ProductSnapshot);
+                const isSelected = selectedItemIds.has(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    id={`return-item-${item.id}`}
+                    onClick={() => toggleItem(item.id)}
+                    className={`flex items-center gap-3 p-3 rounded-sm border text-left transition-all ${
+                      isSelected
+                        ? "border-stone-900 bg-stone-50 ring-1 ring-stone-900"
+                        : "border-stone-200 hover:border-stone-400"
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                      isSelected ? "bg-stone-900 border-stone-900" : "border-stone-300"
+                    }`}>
+                      {isSelected && (
+                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Thumbnail */}
+                    <div className="w-12 h-14 flex-shrink-0 bg-stone-100 rounded-sm overflow-hidden border border-stone-100">
+                      {snap.primaryImageUrl ? (
+                        <img src={snap.primaryImageUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package size={16} className="text-stone-300" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-stone-900 truncate leading-tight">
+                        {snap.productName ?? "Unknown"}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {snap.size && (
+                          <span className="text-[10px] font-mono bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded">
+                            {snap.size}
+                          </span>
+                        )}
+                        {snap.color && (
+                          <span className="text-[10px] text-stone-500 flex items-center gap-1">
+                            {snap.colorHex && (
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-stone-300 inline-block"
+                                style={{ background: snap.colorHex }}
+                              />
+                            )}
+                            {snap.color}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-stone-400">Qty: {item.quantity}</span>
+                      </div>
+                    </div>
+
+                    {/* Price */}
+                    <p className="text-sm font-bold text-stone-800 flex-shrink-0">
+                      ₹{Number(item.totalPrice).toLocaleString("en-IN")}
+                    </p>
+                  </button>
+                );
+              })}
+
+              {error && (
+                <p className="text-xs text-red-600 flex items-center gap-1.5 mt-1">
+                  <AlertCircle size={12} />{error}
+                </p>
+              )}
+            </div>
+          )}
+
+          {step === "reason" && (
+            <div className="p-5 flex flex-col gap-4">
+              {/* Summary of selected items */}
+              <div className="bg-stone-50 border border-stone-200 rounded-sm px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-stone-400 mb-2">Returning</p>
+                <div className="flex flex-col gap-1.5">
+                  {(order.items ?? [])
+                    .filter((i) => selectedItemIds.has(i.id))
+                    .map((item) => (
+                      <div key={item.id} className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-stone-400 flex-shrink-0" />
+                        <span className="text-sm text-stone-700 font-medium truncate">
+                          {item.productSnapshot?.productName ?? "Item"}
+                        </span>
+                        <span className="text-xs text-stone-400 flex-shrink-0">× {item.quantity}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Reason select */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-widest text-stone-500 block mb-1.5">
+                  Reason for return <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <select
+                    id="return-reason-select"
+                    value={reason}
+                    onChange={(e) => { setReason(e.target.value); setError(null); }}
+                    className="w-full border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus:border-black transition-colors rounded-sm appearance-none pr-8"
+                  >
+                    <option value="">Select a reason…</option>
+                    {RETURN_REASONS.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Additional notes */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-widest text-stone-500 block mb-1.5">
+                  Additional notes <span className="text-stone-300 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  id="return-notes"
+                  rows={3}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Any additional details that may help us process your return faster…"
+                  className="w-full border border-stone-300 px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus:border-black transition-colors resize-none rounded-sm bg-stone-50"
+                />
+              </div>
+
+              {error && (
+                <p className="text-xs text-red-600 flex items-center gap-1.5">
+                  <AlertCircle size={12} />{error}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-stone-200 flex gap-3 flex-shrink-0 bg-white">
+          {step === "items" ? (
+            <>
+              <button
+                id="return-modal-cancel"
+                onClick={onClose}
+                className="flex-1 border border-stone-300 text-stone-700 py-2.5 text-sm font-semibold hover:bg-stone-50 transition-colors rounded-sm"
+              >
+                Keep Order
+              </button>
+              <button
+                id="return-next-btn"
+                onClick={handleNext}
+                disabled={selectedItemIds.size === 0}
+                className="flex-1 bg-stone-900 text-white py-2.5 text-sm font-bold uppercase tracking-wider hover:bg-stone-700 transition-colors disabled:opacity-50 rounded-sm"
+              >
+                Next → Select Reason
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                id="return-back-btn"
+                onClick={() => { setStep("items"); setError(null); }}
+                className="flex-1 border border-stone-300 text-stone-700 py-2.5 text-sm font-semibold hover:bg-stone-50 transition-colors rounded-sm"
+              >
+                ← Back
+              </button>
+              <button
+                id="return-submit-btn"
+                onClick={handleSubmit}
+                disabled={loading || !reason}
+                className="flex-1 bg-rose-600 text-white py-2.5 text-sm font-bold uppercase tracking-wider hover:bg-rose-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 rounded-sm"
+              >
+                {loading && <Loader2 size={14} className="animate-spin" />}
+                {loading ? "Submitting…" : "Submit Return"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -385,16 +733,48 @@ function OrderDetailDrawer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnRequest, setReturnRequest] = useState<ReturnRequest | null>(null);
+  const [returnLoading, setReturnLoading] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
+    setReturnRequest(null);
     getMyOrder(orderId)
       .then(setOrder)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load order."))
       .finally(() => setLoading(false));
   }, [orderId]);
+
+  // Fetch any existing return request when order is loaded and is delivered
+  useEffect(() => {
+    if (!order || order.status !== "delivered") return;
+    let isActive = true;
+
+    const fetchRequests = async () => {
+      setReturnLoading(true);
+      try {
+        const requests = await getOrderReturnRequests(order.id);
+        if (!isActive) return;
+        const sorted = [...requests].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setReturnRequest(sorted[0] ?? null);
+      } catch {
+        // silently ignore
+      } finally {
+        if (isActive) setReturnLoading(false);
+      }
+    };
+
+    fetchRequests();
+
+    return () => {
+      isActive = false;
+    };
+  }, [order]);
 
   const handleCancelled = (updated: Order) => {
     setOrder(updated);
@@ -402,7 +782,71 @@ function OrderDetailDrawer({
     onOrderUpdated(updated);
   };
 
+  const handleReturnSubmitted = () => {
+    setShowReturnModal(false);
+    // Reload order + return request
+    if (!order) return;
+    getMyOrder(order.id).then(setOrder);
+    getOrderReturnRequests(order.id).then((requests) => {
+      const sorted = [...requests].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setReturnRequest(sorted[0] ?? null);
+    });
+  };
+
   const canCancel = order ? CANCELLABLE_STATUSES.has(order.status) : false;
+  const canReturn = order?.status === "delivered" && !returnLoading && !returnRequest;
+
+  // Return status banner for delivered orders that already have a request
+  const renderReturnStatusBanner = () => {
+    if (!returnRequest) return null;
+    if (returnRequest.status === "REQUESTED") {
+      return (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-sm px-4 py-3">
+          <RotateCcw size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">Return Pending Review</p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              Your return request has been submitted and is awaiting review. We'll notify you once it's processed.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    if (returnRequest.status === "APPROVED") {
+      return (
+        <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-sm px-4 py-3">
+          <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-emerald-800">Return Approved</p>
+            {returnRequest.refundAmount && (
+              <p className="text-xs text-emerald-700 mt-0.5">
+                Refund of ₹{Number(returnRequest.refundAmount).toLocaleString("en-IN")} will be processed within 5–7 business days.
+              </p>
+            )}
+            {returnRequest.adminNote && (
+              <p className="text-xs text-emerald-600 mt-1 italic">"{returnRequest.adminNote}"</p>
+            )}
+          </div>
+        </div>
+      );
+    }
+    if (returnRequest.status === "REJECTED") {
+      return (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-sm px-4 py-3">
+          <XCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-red-800">Return Request Rejected</p>
+            <p className="text-xs text-red-600 mt-0.5">
+              {returnRequest.adminNote ?? "This return request was not approved. Please contact support for assistance."}
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <>
@@ -491,6 +935,9 @@ function OrderDetailDrawer({
 
           {order && !loading && (
             <>
+              {/* ── Return status banner (delivered orders with existing request) ── */}
+              {returnRequest && renderReturnStatusBanner()}
+
               {/* ── Items ── */}
               <div>
                 <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#78716c", fontWeight: 600, marginBottom: 12, lineHeight: 1.5 }}>
@@ -702,17 +1149,35 @@ function OrderDetailDrawer({
           )}
         </div>
 
-        {/* Drawer footer */}
-        {order && !loading && canCancel && (
-          <div className="px-6 py-4 border-t border-stone-200 bg-white flex-shrink-0">
-            <button
-              id="cancel-order-btn"
-              onClick={() => setShowCancelModal(true)}
-              className="w-full border border-red-300 text-red-600 py-3 text-sm font-bold uppercase tracking-wider hover:bg-red-50 hover:border-red-500 transition-colors rounded-sm flex items-center justify-center gap-2"
-            >
-              <XCircle size={16} />
-              Cancel Order
-            </button>
+        {/* Drawer footer — cancel or return buttons */}
+        {order && !loading && (canCancel || canReturn || returnLoading) && (
+          <div className="px-6 py-4 border-t border-stone-200 bg-white flex-shrink-0 flex flex-col gap-2">
+            {canReturn && (
+              <button
+                id="return-order-btn"
+                onClick={() => setShowReturnModal(true)}
+                className="w-full border border-rose-300 text-rose-600 py-3 text-sm font-bold uppercase tracking-wider hover:bg-rose-50 hover:border-rose-500 transition-colors rounded-sm flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={16} />
+                Return Items
+              </button>
+            )}
+            {returnLoading && (
+              <div className="flex items-center justify-center gap-2 py-3 text-stone-400">
+                <Loader2 size={14} className="animate-spin" />
+                <span className="text-xs">Checking return status…</span>
+              </div>
+            )}
+            {canCancel && (
+              <button
+                id="cancel-order-btn"
+                onClick={() => setShowCancelModal(true)}
+                className="w-full border border-red-300 text-red-600 py-3 text-sm font-bold uppercase tracking-wider hover:bg-red-50 hover:border-red-500 transition-colors rounded-sm flex items-center justify-center gap-2"
+              >
+                <XCircle size={16} />
+                Cancel Order
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -722,6 +1187,14 @@ function OrderDetailDrawer({
           orderId={order.id}
           onClose={() => setShowCancelModal(false)}
           onCancelled={handleCancelled}
+        />
+      )}
+
+      {showReturnModal && order && (
+        <ReturnModal
+          order={order}
+          onClose={() => setShowReturnModal(false)}
+          onSubmitted={handleReturnSubmitted}
         />
       )}
     </>
@@ -783,7 +1256,19 @@ function AuthGuard() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
-  const isLoggedIn = !!localStorage.getItem("unchanged_token");
+  // Reactive auth state — re-reads on authStateChanged so a token refresh
+  // doesn't leave the page stuck showing "Sign in" while the user is logged in.
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("unchanged_token"));
+
+  useEffect(() => {
+    const syncAuth = () => setIsLoggedIn(!!localStorage.getItem("unchanged_token"));
+    window.addEventListener("authStateChanged", syncAuth);
+    window.addEventListener("storage", syncAuth); // cross-tab sync
+    return () => {
+      window.removeEventListener("authStateChanged", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+  }, []);
 
   const [data, setData] = useState<PaginatedOrders | null>(null);
   const [loading, setLoading] = useState(true);
@@ -795,6 +1280,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [returnOrder, setReturnOrder] = useState<Order | null>(null);
 
   const fetchOrders = useCallback(
     async (pg: number, status: string, sort: string) => {
@@ -827,6 +1313,7 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders(page, statusFilter, sortBy);
   }, [isLoggedIn, page, statusFilter, sortBy, fetchOrders]);
+
 
   const handleStatusChange = (val: string) => {
     setStatusFilter(val);
@@ -969,6 +1456,10 @@ export default function OrdersPage() {
                         key={order.id}
                         order={order}
                         onClick={() => setSelectedOrderId(order.id)}
+                        onReturnClick={(e) => {
+                          e.stopPropagation();
+                          setReturnOrder(order);
+                        }}
                       />
                     ))}
                   </div>
@@ -1009,12 +1500,23 @@ export default function OrdersPage() {
         )}
       </div>
 
-      {/* ── Order Detail Drawer ── */}
       {selectedOrderId && (
         <OrderDetailDrawer
           orderId={selectedOrderId}
           onClose={() => setSelectedOrderId(null)}
           onOrderUpdated={handleOrderUpdated}
+        />
+      )}
+
+      {/* Return Modal (accessible from both Card and Drawer) */}
+      {returnOrder && (
+        <ReturnModal
+          order={returnOrder}
+          onClose={() => setReturnOrder(null)}
+          onSubmitted={() => {
+            setReturnOrder(null);
+            fetchOrders(page, statusFilter, sortBy);
+          }}
         />
       )}
     </div>

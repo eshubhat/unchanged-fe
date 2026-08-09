@@ -8,6 +8,7 @@ import {
   getMe,
   getAddresses,
   initiateGoogleLogin,
+  storeAuthTokens,
   type UserInfo,
   type SavedAddress,
 } from "../../utils/api";
@@ -163,12 +164,9 @@ export default function CheckoutPage() {
       // user can see and select their saved address before placing the order.
       if (!loggedInUser && isLogin) {
         const tokens = await loginUser({ email: auth.email, password: auth.password });
-        localStorage.setItem("unchanged_token", tokens.accessToken ?? "");
+        storeAuthTokens(tokens);
         const userObj = tokens.user ?? null;
-        if (userObj) {
-          localStorage.setItem("unchanged_user", JSON.stringify(userObj));
-          setLoggedInUser(userObj);
-        }
+        if (userObj) setLoggedInUser(userObj);
         // Load their saved addresses into the address manager
         await fetchAddresses();
         // Stop here — the page will now show the address section
@@ -195,12 +193,9 @@ export default function CheckoutPage() {
             pincode: regAddr.pincode,
           },
         });
-        localStorage.setItem("unchanged_token", tokens.accessToken ?? "");
+        storeAuthTokens(tokens);
         const userObj = tokens.user ?? null;
-        if (userObj) {
-          localStorage.setItem("unchanged_user", JSON.stringify(userObj));
-          setLoggedInUser(userObj);
-        }
+        if (userObj) setLoggedInUser(userObj);
         // Get the address that was just created at registration
         const { addresses } = await getAddresses();
         const def = addresses.find((a) => a.isDefault) ?? addresses[0];
@@ -442,9 +437,11 @@ export default function CheckoutPage() {
                     localStorage.removeItem("unchanged_token");
                     localStorage.removeItem("unchanged_user");
                     localStorage.removeItem("unchanged_has_address");
+                    localStorage.removeItem("unchanged_token_expiry");
                     setLoggedInUser(null);
                     setSavedAddresses([]);
                     setSelectedAddressId(null);
+                    window.dispatchEvent(new Event("authStateChanged"));
                   }}
                   className="mt-2 text-sm font-semibold border border-stone-300 text-stone-600 hover:border-red-500 hover:text-red-500 hover:bg-red-50 transition-colors px-6 py-2 rounded-sm"
                 >

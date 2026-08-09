@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { storeAuthTokens } from "../../utils/api";
 
 /**
  * Landing page for Google OAuth redirect.
@@ -20,15 +21,19 @@ export default function AuthCallbackPage() {
     const hasAddress = params.get("hasAddress") === "1";
 
     if (token) {
-      localStorage.setItem("unchanged_token", token);
-      localStorage.setItem("unchanged_has_address", hasAddress ? "1" : "0");
-
+      let user: object | undefined;
       if (userRaw) {
         try {
-          const user = JSON.parse(decodeURIComponent(userRaw));
-          localStorage.setItem("unchanged_user", JSON.stringify(user));
+          user = JSON.parse(decodeURIComponent(userRaw));
         } catch (_) {}
       }
+
+      // Use storeAuthTokens so token expiry is persisted for proactive refresh
+      storeAuthTokens({
+        accessToken: token,
+        user: user as any,
+        hasAddress,
+      });
 
       // Always go to checkout — the page reads has_address to decide what to show
       navigate("/checkout", { replace: true });
@@ -37,6 +42,7 @@ export default function AuthCallbackPage() {
       navigate("/cart", { replace: true });
     }
   }, [navigate]);
+
 
   return (
     <div className="min-h-screen bg-[#fcf9f0] flex items-center justify-center">

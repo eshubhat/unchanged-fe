@@ -8,17 +8,22 @@ function clearAuthState(): void {
   localStorage.removeItem('unchanged_token');
   localStorage.removeItem('unchanged_user');
   localStorage.removeItem('unchanged_has_address');
+  localStorage.removeItem('unchanged_token_expiry');
 }
 
 // ─── Token Refresh ─────────────────────────────────────────────────────────
 
 // Shared promise so concurrent 401s only trigger ONE refresh call.
+// We keep a single promise reference and only null it out AFTER the
+// promise has fully settled — avoiding the race where a second caller
+// could race past the null check and fire a duplicate refresh.
 let refreshInFlight: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
-  refreshInFlight = (async () => {
+  // Assign before the async work starts so any concurrent caller sees it
+  const inFlight = (async () => {
     try {
       const res = await fetch(`${BASE_URL}/auth/refresh`, {
         method: 'POST',
@@ -34,9 +39,13 @@ async function refreshAccessToken(): Promise<string | null> {
       // Unwrap the TransformInterceptor envelope if present
       const data = json?.success === true ? json.data : json;
       const newToken: string | null = data?.accessToken ?? null;
+      // parseInt() guards against the server returning a string instead of a number
+      const expiresIn: number = parseInt(String(data?.expiresIn ?? '86400'), 10);
 
       if (newToken) {
         localStorage.setItem('unchanged_token', newToken);
+        // Store expiry timestamp so App.tsx can schedule proactive refresh
+        localStorage.setItem('unchanged_token_expiry', String(Date.now() + expiresIn * 1000));
 
         // Re-hydrate user info so Navbar and other components stay in sync
         try {
@@ -62,13 +71,38 @@ async function refreshAccessToken(): Promise<string | null> {
     } catch {
       clearAuthState();
       return null;
-    } finally {
-      refreshInFlight = null;
     }
   })();
 
-  return refreshInFlight;
+  // Null-out only after the promise resolves so no concurrent call
+  // can slip through and start a second refresh mid-flight.
+  refreshInFlight = inFlight;
+  inFlight.finally(() => { refreshInFlight = null; });
+  return inFlight;
 }
+
+/** Returns how many milliseconds until the stored access token expires.
+ *  Returns 0 if no expiry is stored (treat as already expired). */
+export function getTokenExpiryMs(): number {
+  const raw = localStorage.getItem('unchanged_token_expiry');
+  if (!raw) return 0;
+  return Math.max(0, parseInt(raw, 10) - Date.now());
+}
+
+/**
+ * Decode the JWT's `exp` claim (seconds since epoch) without a library.
+ * Returns null if the token is missing or malformed.
+ */
+function getJwtExp(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+
 
 // ─── Core Request ──────────────────────────────────────────────────────────
 
@@ -150,6 +184,17 @@ export async function initAuth(): Promise<void> {
         const user = data?.user ?? data;
         if (user?.id) {
           localStorage.setItem('unchanged_user', JSON.stringify(user));
+
+          // Always reseed expiry from the JWT's own exp claim on every check
+          // (not just when missing) so the proactive refresh timer stays accurate.
+          const exp = getJwtExp(token);
+          if (exp !== null) {
+            localStorage.setItem('unchanged_token_expiry', String(exp * 1000));
+          } else if (!localStorage.getItem('unchanged_token_expiry')) {
+            // Token has no exp (unusual) — assume 24h from now as safe fallback
+            localStorage.setItem('unchanged_token_expiry', String(Date.now() + 86400 * 1000));
+          }
+
           window.dispatchEvent(new Event('authStateChanged'));
         }
         return; // Token is healthy — done
@@ -175,9 +220,30 @@ export interface UserInfo {
 
 export interface AuthTokens {
   accessToken: string;
+  expiresIn?: number;
   refreshToken?: string;
   user?: UserInfo;
   hasAddress?: boolean;
+}
+
+/**
+ * Centralised helper — call after every login / register response to
+ * persist both the token AND its expiry in one place.
+ * This ensures the proactive refresh timer always has data to work with.
+ */
+export function storeAuthTokens(tokens: AuthTokens): void {
+  if (tokens.accessToken) {
+    localStorage.setItem('unchanged_token', tokens.accessToken);
+    const ttl = (tokens.expiresIn ?? 86400) * 1000; // default 24h
+    localStorage.setItem('unchanged_token_expiry', String(Date.now() + ttl));
+  }
+  if (tokens.user) {
+    localStorage.setItem('unchanged_user', JSON.stringify(tokens.user));
+    window.dispatchEvent(new Event('authStateChanged'));
+  }
+  if (tokens.hasAddress !== undefined) {
+    localStorage.setItem('unchanged_has_address', tokens.hasAddress ? '1' : '0');
+  }
 }
 
 export interface RegisterAddressPayload {
@@ -445,3 +511,55 @@ export async function verifyPayment(payload: VerifyPaymentPayload): Promise<unkn
     body: JSON.stringify(payload),
   });
 }
+
+// ─── Return Requests ────────────────────────────────────────────────────────
+
+export interface ReturnRequest {
+  id: string;
+  orderId: string;
+  userId: string;
+  reason: string;
+  description: string | null;
+  evidenceUrls: string[];
+  status: 'REQUESTED' | 'APPROVED' | 'REJECTED';
+  refundAmount: number | null;
+  adminNote: string | null;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  order?: { orderNumber: string; totalAmount: number };
+  user?: { firstName: string; lastName?: string; email: string };
+}
+
+export async function requestReturn(
+  orderId: string,
+  payload: { reason: string; description?: string; evidenceUrls?: string[] },
+): Promise<ReturnRequest> {
+  return request<ReturnRequest>(`/orders/${orderId}/return`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getOrderReturnRequests(orderId: string): Promise<ReturnRequest[]> {
+  return request<ReturnRequest[]>(`/orders/${orderId}/return`);
+}
+
+// ─── Admin — Return Requests ─────────────────────────────────────────────────
+
+export async function adminGetReturnRequests(status?: string): Promise<ReturnRequest[]> {
+  const qs = status ? `?status=${status}` : '';
+  return request<ReturnRequest[]>(`/admin/orders/return-requests${qs}`);
+}
+
+export async function adminResolveReturnRequest(
+  requestId: string,
+  payload: { action: 'approved' | 'rejected'; adminNote?: string; refundAmount?: number },
+): Promise<ReturnRequest> {
+  return request<ReturnRequest>(`/admin/orders/return-requests/${requestId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
