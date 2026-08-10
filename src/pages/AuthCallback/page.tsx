@@ -24,8 +24,12 @@ export default function AuthCallbackPage() {
       let user: object | undefined;
       if (userRaw) {
         try {
-          user = JSON.parse(decodeURIComponent(userRaw));
-        } catch (_) {}
+          user = JSON.parse(userRaw);
+        } catch (_) {
+          try {
+            user = JSON.parse(decodeURIComponent(userRaw));
+          } catch (_) {}
+        }
       }
 
       // Use storeAuthTokens so token expiry is persisted for proactive refresh
