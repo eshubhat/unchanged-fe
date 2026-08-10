@@ -95,7 +95,10 @@ export function getTokenExpiryMs(): number {
  */
 function getJwtExp(token: string): number | null {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payloadPart = token.split('.')[1];
+    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+    const payload = JSON.parse(atob(padded));
     return typeof payload.exp === 'number' ? payload.exp : null;
   } catch {
     return null;
@@ -234,8 +237,11 @@ export interface AuthTokens {
 export function storeAuthTokens(tokens: AuthTokens): void {
   if (tokens.accessToken) {
     localStorage.setItem('unchanged_token', tokens.accessToken);
-    const ttl = (tokens.expiresIn ?? 86400) * 1000; // default 24h
-    localStorage.setItem('unchanged_token_expiry', String(Date.now() + ttl));
+    const exp = getJwtExp(tokens.accessToken);
+    const expiryMs = exp !== null
+      ? exp * 1000
+      : Date.now() + (tokens.expiresIn ?? 86400) * 1000;
+    localStorage.setItem('unchanged_token_expiry', String(expiryMs));
   }
   if (tokens.user) {
     localStorage.setItem('unchanged_user', JSON.stringify(tokens.user));
@@ -562,4 +568,3 @@ export async function adminResolveReturnRequest(
     body: JSON.stringify(payload),
   });
 }
-

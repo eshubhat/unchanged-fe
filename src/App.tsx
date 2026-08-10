@@ -58,8 +58,10 @@ export default function App() {
   }, []); // stable — no deps, reads from localStorage at call time
 
   useEffect(() => {
-    // Silently restore auth session on hard refresh, then start proactive refresh
-    initAuth().then(() => scheduleProactiveRefresh());
+    // Let the OAuth callback store the fresh token before any silent refresh can clear auth state.
+    if (window.location.pathname !== "/auth/callback") {
+      initAuth().then(() => scheduleProactiveRefresh());
+    }
 
     // Re-verify auth whenever the tab becomes visible again (user returns from
     // another tab / phone lock). Without this, idle users get 401s on return.
@@ -70,8 +72,12 @@ export default function App() {
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
+    const handleAuthStateChanged = () => scheduleProactiveRefresh();
+    window.addEventListener("authStateChanged", handleAuthStateChanged);
+
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("authStateChanged", handleAuthStateChanged);
       if (proactiveRefreshTimer.current) clearTimeout(proactiveRefreshTimer.current);
     };
   }, [scheduleProactiveRefresh]);
