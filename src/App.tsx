@@ -16,6 +16,8 @@ const AuthCallbackPage = lazy(() => import("./pages/AuthCallback/page"));
 const OrdersPage = lazy(() => import("./pages/Orders/page"));
 const ProfilePage = lazy(() => import("./pages/Profile/page"));
 const FAQPage = lazy(() => import("./pages/FAQ/page"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicy/page"));
+const ReviewsPage = lazy(() => import("./pages/Reviews/page"));
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 
 import "./App.css";
@@ -119,6 +121,8 @@ export default function App() {
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/faq" element={<FAQPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/reviews" element={<ReviewsPage />} />
           </Routes>
         </Suspense>
         <Footer />

@@ -4,9 +4,11 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import companyLogo from "../../assets/company_logo-cropped.svg";
 import { lenis } from "../../utils/lenis"
-import { Search, ShoppingCart, Package, User } from "lucide-react";
+import { Search, ShoppingCart, Package, User, Ruler, MessageCircle, Mail, ChevronUp, ChevronDown } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getCart } from "../../utils/cart";
+import navbarImage from "../../assets/bg-hero.webp"
+import SizeGuideModal from "../SizeGuideModal";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -37,6 +39,10 @@ export default function Navbar() {
   const [cartCount, setCartCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<any>(null);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+
+  const whatsAppNo = import.meta.env.VITE_WHATSAPP_NUMBER;
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -59,7 +65,7 @@ export default function Navbar() {
       if (userStr) {
         try {
           setLoggedInUser(JSON.parse(userStr));
-        } catch (_) {}
+        } catch (_) { }
       } else {
         setLoggedInUser(null);
       }
@@ -314,10 +320,11 @@ export default function Navbar() {
   };
 
   return (
+    <>
     <div ref={containerRef}>
       <div className="navbar-backdrop">
         <div className="navbar-img" ref={navBarImgRef}>
-          <img src="/navbar-img.jpg" alt="Navbar Background" />
+          <img src={navbarImage} alt="Navbar Background" />
         </div>
         <div className="navbar-background" ref={navbarBgRef}></div>
       </div>
@@ -325,8 +332,8 @@ export default function Navbar() {
       <div className="navbar-items" ref={navbarItemsRef}>
         {/* Desktop — left links */}
         <div className="navbar-links" ref={(el) => { navbarLinksRefs.current[0] = el; }}>
-          <a href="#">Men</a>
-          <a href="#">Women</a>
+          <a href="#" className="has-tooltip relative" data-tooltip="Shop Men's Collection">Men</a>
+          <a href="#" className="has-tooltip relative" data-tooltip="Shop Women's Collection">Women</a>
         </div>
 
         {/* Desktop — right links (search + cart) */}
@@ -336,8 +343,8 @@ export default function Navbar() {
             ref={searchRef}
             onClick={handleSearchClick}
           >
-            <button className="navbar-search-btn" ref={searchBtnRef}>
-              <Search size={24} />
+            <button className="navbar-search-btn has-tooltip" ref={searchBtnRef} data-tooltip="Search collections">
+              <Search size={29} />
             </button>
             <input
               ref={inputRef}
@@ -349,7 +356,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center space-x-16 gap-6">
-            <Link to="/profile" className="relative flex items-center" title="My Profile">
+            <Link to="/profile" className="relative flex items-center has-tooltip" data-tooltip="My Profile">
               {loggedInUser ? (
                 loggedInUser.avatarUrl ? (
                   <img src={loggedInUser.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover border border-stone-200" style={{ width: 20, height: 20 }} />
@@ -359,16 +366,16 @@ export default function Navbar() {
                   </div>
                 )
               ) : (
-                <User size={18} />
+                <User size={23} />
               )}
             </Link>
 
-            <Link to="/orders" className="relative flex items-center" title="My Orders">
-              <Package size={18} />
+            <Link to="/orders" className="relative flex items-center has-tooltip" data-tooltip="My Orders">
+              <Package size={23} />
             </Link>
 
-            <Link to="/cart" className="relative flex items-center">
-              <ShoppingCart size={18} />
+            <Link to="/cart" className="relative flex items-center has-tooltip" data-tooltip="My Cart">
+              <ShoppingCart size={23} />
               {cartCount > 0 && (
                 <span className="absolute -top-2 -right-2 bg-black text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
                   {cartCount}
@@ -380,14 +387,15 @@ export default function Navbar() {
 
         {/* Logo */}
         <div className="navbar-logo" ref={navbarLogoRef}>
-          <Link to="/"><img src={companyLogo} alt="Logo" /></Link>
+          <Link to="/" className="relative"><img src={companyLogo} alt="Logo" /></Link>
         </div>
 
         {/* Mobile — hamburger (absolute left) */}
         <button
-          className={`navbar-hamburger${menuOpen ? " open" : ""}`}
+          className={`navbar-hamburger${menuOpen ? " open" : ""} has-tooltip`}
           onClick={() => setMenuOpen((prev) => !prev)}
           aria-label="Toggle menu"
+          data-tooltip="Toggle menu"
         >
           <span></span>
           <span></span>
@@ -400,8 +408,8 @@ export default function Navbar() {
           ref={mobileSearchRef}
           onClick={handleMobileSearchPillClick}
         >
-          <button className="navbar-mobile-search-btn-inner" ref={mobileSearchBtnRef}>
-            <Search size={16} />
+          <button className="navbar-mobile-search-btn-inner has-tooltip" ref={mobileSearchBtnRef} data-tooltip="Search collections">
+            <Search size={21} />
           </button>
           <input
             ref={mobileSearchInputRef}
@@ -423,22 +431,33 @@ export default function Navbar() {
       />
 
       {/* Mobile slide-in drawer */}
-      <div className={`navbar-mobile-drawer${menuOpen ? " open" : ""}`}>
+      <div className={`navbar-mobile-drawer${menuOpen ? " open" : ""}`} data-lenis-prevent="true">
         <button
-          className="navbar-mobile-close"
+          className="navbar-mobile-close has-tooltip relative"
           onClick={() => setMenuOpen(false)}
           aria-label="Close menu"
+          data-tooltip="Close menu"
         >
           ✕
         </button>
 
         <nav className="navbar-mobile-nav">
-          <a href="#" onClick={() => setMenuOpen(false)}>Men</a>
-          <a href="#" onClick={() => setMenuOpen(false)}>Women</a>
+          <a href="#" onClick={() => setMenuOpen(false)} className="has-tooltip relative" data-tooltip="Shop Men's Collection">Men</a>
+          <a href="#" onClick={() => setMenuOpen(false)} className="has-tooltip relative" data-tooltip="Shop Women's Collection">Women</a>
+          <button
+            onClick={() => { setMenuOpen(false); setSizeGuideOpen(true); }}
+            id="mobile-nav-size-guide-btn"
+            className="has-tooltip relative text-left bg-transparent border-none cursor-pointer"
+            data-tooltip="View Size Guide"
+            style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "2rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.02em", color: "var(--base-200)", opacity: 0.85 }}
+          >
+            <Ruler size={22} style={{ display: "inline", marginRight: "0.4rem", verticalAlign: "middle" }} />
+            Size Guide
+          </button>
         </nav>
 
         <div className="navbar-mobile-actions">
-          <Link to="/profile" onClick={() => setMenuOpen(false)}>
+          <Link to="/profile" onClick={() => setMenuOpen(false)} className="has-tooltip relative" data-tooltip="My Profile">
             {loggedInUser ? (
               loggedInUser.avatarUrl ? (
                 <img src={loggedInUser.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover border border-stone-200" style={{ width: 20, height: 20 }} />
@@ -448,23 +467,159 @@ export default function Navbar() {
                 </div>
               )
             ) : (
-              <User size={20} />
+              <User size={25} />
             )}
             <span>Profile</span>
           </Link>
-          <Link to="/orders" onClick={() => setMenuOpen(false)}>
-            <Package size={20} />
+          <Link to="/orders" onClick={() => setMenuOpen(false)} className="has-tooltip relative" data-tooltip="My Orders">
+            <Package size={25} />
             <span>My Orders</span>
           </Link>
-          <Link to="/cart" onClick={() => setMenuOpen(false)}>
-            <ShoppingCart size={20} />
+          <Link to="/cart" onClick={() => setMenuOpen(false)} className="has-tooltip relative" data-tooltip="My Cart">
+            <ShoppingCart size={25} />
             <span>Cart</span>
             {cartCount > 0 && (
               <span className="navbar-cart-badge">{cartCount}</span>
             )}
           </Link>
         </div>
+
+        {/* Support — pinned to bottom */}
+        <div style={{ marginTop: "auto", borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: "1.25rem" }}>
+
+          {/* Toggle button */}
+          <button
+            id="mobile-nav-support-btn"
+            onClick={() => setSupportOpen(prev => !prev)}
+            className="has-tooltip relative"
+            data-tooltip="Help & Support"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+              fontFamily: "'Host Grotesk', sans-serif",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              color: "var(--base-200)",
+              opacity: supportOpen ? 1 : 0.65,
+              transition: "opacity 0.2s",
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <MessageCircle size={18} />
+              Support
+            </span>
+            {supportOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {/* Expandable sub-links */}
+          <div
+            style={{
+              overflow: "hidden",
+              maxHeight: supportOpen ? "200px" : "0px",
+              transition: "max-height 0.32s cubic-bezier(0.4,0,0.2,1)",
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", paddingTop: "1rem", paddingLeft: "0.25rem" }}>
+
+              {/* Instagram */}
+              <a
+                href="https://www.instagram.com/theunchangedstudios/"
+                onClick={() => setMenuOpen(false)}
+                target="_blank"
+                rel="noopener noreferrer"
+                id="mobile-support-instagram"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.65rem",
+                  fontFamily: "'Host Grotesk', sans-serif",
+                  fontSize: "0.8125rem",
+                  fontWeight: 400,
+                  color: "var(--base-200)",
+                  textDecoration: "none",
+                  opacity: 0.7,
+                  transition: "opacity 0.18s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "0.7")}
+              >
+                {/* Instagram icon */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                  <circle cx="12" cy="12" r="4"/>
+                  <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" stroke="none"/>
+                </svg>
+                Instagram
+              </a>
+
+              {/* WhatsApp */}
+              <a
+                href={`https://wa.me/${whatsAppNo}`}
+                onClick={() => setMenuOpen(false)}
+                target="_blank"
+                rel="noopener noreferrer"
+                id="mobile-support-whatsapp"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.65rem",
+                  fontFamily: "'Host Grotesk', sans-serif",
+                  fontSize: "0.8125rem",
+                  fontWeight: 400,
+                  color: "var(--base-200)",
+                  textDecoration: "none",
+                  opacity: 0.7,
+                  transition: "opacity 0.18s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "0.7")}
+              >
+                {/* WhatsApp icon (lucide doesn't have one — using a clean inline SVG) */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.116 1.523 5.847L0 24l6.338-1.491A11.935 11.935 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.374l-.359-.213-3.72.876.939-3.617-.234-.373A9.77 9.77 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/>
+                </svg>
+                WhatsApp
+              </a>
+
+              {/* Email */}
+              <a
+                href="mailto:contact@theunchangedstudios.com"
+                onClick={() => setMenuOpen(false)}
+                id="mobile-support-email"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.65rem",
+                  fontFamily: "'Host Grotesk', sans-serif",
+                  fontSize: "0.8125rem",
+                  fontWeight: 400,
+                  color: "var(--base-200)",
+                  textDecoration: "none",
+                  opacity: 0.7,
+                  transition: "opacity 0.18s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "0.7")}
+              >
+                <Mail size={16} />
+                Email
+              </a>
+
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+
+    {/* Size Guide Modal — triggered from mobile drawer */}
+    {sizeGuideOpen && <SizeGuideModal onClose={() => setSizeGuideOpen(false)} />}
+    </>
   );
 }

@@ -568,3 +568,96 @@ export async function adminResolveReturnRequest(
     body: JSON.stringify(payload),
   });
 }
+
+// ─── Reviews ────────────────────────────────────────────────────────────────
+
+export interface ReviewUser {
+  firstName: string;
+  avatarUrl: string | null;
+}
+
+export interface ProductReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  isVerifiedPurchase: boolean;
+  helpfulCount: number;
+  adminReply: string | null;
+  adminRepliedAt: string | null;
+  createdAt: string;
+  user: ReviewUser | null;
+}
+
+export interface PaginatedReviews {
+  data: ProductReview[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+  stats: {
+    averageRating: number;
+    reviewCount: number;
+  };
+}
+
+export interface MyReview {
+  id: string;
+  productId: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  isVerifiedPurchase: boolean;
+  isApproved: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function createReview(
+  productId: string,
+  payload: { rating: number; title?: string; body?: string },
+): Promise<MyReview> {
+  return request<MyReview>(`/reviews/${productId}`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateReview(
+  reviewId: string,
+  payload: { rating?: number; title?: string; body?: string },
+): Promise<MyReview> {
+  return request<MyReview>(`/reviews/${reviewId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteReview(reviewId: string): Promise<void> {
+  return request<void>(`/reviews/${reviewId}`, { method: 'DELETE' });
+}
+
+export async function getMyReview(productId: string): Promise<MyReview | null> {
+  try {
+    return await request<MyReview>(`/reviews/my/${productId}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function getProductReviews(
+  productId: string,
+  page = 1,
+  limit = 10,
+): Promise<PaginatedReviews> {
+  return request<PaginatedReviews>(
+    `/reviews/product/${productId}?page=${page}&limit=${limit}`,
+    {},
+    false,
+  );
+}
+
