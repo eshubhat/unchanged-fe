@@ -7,9 +7,6 @@ import {
   requestReturn,
   getOrderReturnRequests,
   getMyReview,
-  createReview,
-  updateReview,
-  deleteReview,
   type ReturnRequest,
   type Order,
   type PaginatedOrders,
@@ -174,56 +171,56 @@ function OrderCard({
         onClick={onClick}
         className="w-full text-left p-5 pb-4 block"
       >
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
-        <div className="flex flex-col gap-1">
-          <p className="font-bold text-stone-900 tracking-wide text-sm font-mono">
-            {order.orderNumber}
+        {/* Header */}
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
+          <div className="flex flex-col gap-1">
+            <p className="font-bold text-stone-900 tracking-wide text-sm font-mono">
+              {order.orderNumber}
+            </p>
+            <p className="text-xs text-stone-400">{fmtDate(order.createdAt)}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={order.status} />
+            <ChevronRight
+              size={16}
+              className="text-stone-300 group-hover:text-stone-600 group-hover:translate-x-0.5 transition-transform"
+            />
+          </div>
+        </div>
+
+        {/* Item thumbnails */}
+        {images.length > 0 && (
+          <div className="flex gap-2 mb-4">
+            {images.slice(0, 4).map((url, idx) => (
+              <div
+                key={idx}
+                className="w-12 h-14 bg-stone-100 flex-shrink-0 overflow-hidden rounded-sm border border-stone-100"
+              >
+                <img
+                  src={url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
+            ))}
+            {images.length > 4 && (
+              <div className="w-12 h-14 bg-stone-100 flex-shrink-0 rounded-sm border border-stone-100 flex items-center justify-center text-xs text-stone-500 font-bold">
+                +{images.length - 4}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Item names */}
+        <div className="mb-4">
+          <p className="text-xs text-stone-500 leading-relaxed truncate">
+            {(order.items ?? [])
+              .map((i) => i.productSnapshot?.productName ?? "Unknown item")
+              .filter(Boolean)
+              .join(" · ") || "—"}
           </p>
-          <p className="text-xs text-stone-400">{fmtDate(order.createdAt)}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <StatusBadge status={order.status} />
-          <ChevronRight
-            size={16}
-            className="text-stone-300 group-hover:text-stone-600 group-hover:translate-x-0.5 transition-transform"
-          />
-        </div>
-      </div>
-
-      {/* Item thumbnails */}
-      {images.length > 0 && (
-        <div className="flex gap-2 mb-4">
-          {images.slice(0, 4).map((url, idx) => (
-            <div
-              key={idx}
-              className="w-12 h-14 bg-stone-100 flex-shrink-0 overflow-hidden rounded-sm border border-stone-100"
-            >
-              <img
-                src={url}
-                alt=""
-                className="w-full h-full object-cover"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-              />
-            </div>
-          ))}
-          {images.length > 4 && (
-            <div className="w-12 h-14 bg-stone-100 flex-shrink-0 rounded-sm border border-stone-100 flex items-center justify-center text-xs text-stone-500 font-bold">
-              +{images.length - 4}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Item names */}
-      <div className="mb-4">
-        <p className="text-xs text-stone-500 leading-relaxed truncate">
-          {(order.items ?? [])
-            .map((i) => i.productSnapshot?.productName ?? "Unknown item")
-            .filter(Boolean)
-            .join(" · ") || "—"}
-        </p>
-      </div>
       </button>
 
       {/* Footer */}
@@ -428,9 +425,8 @@ function ReturnModal({
           {(["items", "reason"] as const).map((s, i) => (
             <div
               key={s}
-              className={`flex-1 py-2.5 text-center text-[11px] font-bold uppercase tracking-widest ${
-                step === s ? "text-stone-900 border-b-2 border-stone-900" : "text-stone-400"
-              }`}
+              className={`flex-1 py-2.5 text-center text-[11px] font-bold uppercase tracking-widest ${step === s ? "text-stone-900 border-b-2 border-stone-900" : "text-stone-400"
+                }`}
             >
               {i + 1}. {s === "items" ? "Select Items" : "Reason"}
             </div>
@@ -459,16 +455,14 @@ function ReturnModal({
                     key={item.id}
                     id={`return-item-${item.id}`}
                     onClick={() => toggleItem(item.id)}
-                    className={`flex items-center gap-3 p-3 rounded-sm border text-left transition-all ${
-                      isSelected
+                    className={`flex items-center gap-3 p-3 rounded-sm border text-left transition-all ${isSelected
                         ? "border-stone-900 bg-stone-50 ring-1 ring-stone-900"
                         : "border-stone-200 hover:border-stone-400"
-                    }`}
+                      }`}
                   >
                     {/* Checkbox */}
-                    <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                      isSelected ? "bg-stone-900 border-stone-900" : "border-stone-300"
-                    }`}>
+                    <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isSelected ? "bg-stone-900 border-stone-900" : "border-stone-300"
+                      }`}>
                       {isSelected && (
                         <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
                           <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -1480,11 +1474,10 @@ export default function OrdersPage() {
             <button
               id="tab-orders"
               onClick={() => handleTabChange('orders')}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all -mb-px ${
-                activeTab === 'orders'
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all -mb-px ${activeTab === 'orders'
                   ? 'border-stone-900 text-stone-900'
                   : 'border-transparent text-stone-400 hover:text-stone-700'
-              }`}
+                }`}
             >
               <Package size={15} />
               Orders
@@ -1492,11 +1485,10 @@ export default function OrdersPage() {
             <button
               id="tab-reviews"
               onClick={() => handleTabChange('reviews')}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all -mb-px ${
-                activeTab === 'reviews'
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all -mb-px ${activeTab === 'reviews'
                   ? 'border-stone-900 text-stone-900'
                   : 'border-transparent text-stone-400 hover:text-stone-700'
-              }`}
+                }`}
             >
               <Star size={15} />
               Reviews
@@ -1709,7 +1701,7 @@ export default function OrdersPage() {
                     <div className="flex gap-4 p-4">
                       <div className="w-16 h-20 flex-shrink-0 bg-stone-100 rounded-sm overflow-hidden border border-stone-100">
                         {item.productImage
-                          ? <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
+                          ? <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                           : <div className="w-full h-full flex items-center justify-center"><Package size={20} className="text-stone-300" /></div>}
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col gap-1">
@@ -1721,7 +1713,7 @@ export default function OrdersPage() {
                         </div>
                         <p className="text-[11px] text-stone-400">
                           Order <span className="font-mono font-semibold text-stone-600">{item.orderNumber}</span>
-                          {item.deliveredAt ? ` · Delivered ${new Date(item.deliveredAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}` : ''}
+                          {item.deliveredAt ? ` · Delivered ${new Date(item.deliveredAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
                         </p>
                       </div>
                     </div>
@@ -1758,7 +1750,7 @@ export default function OrdersPage() {
                       <div className="flex gap-4 p-4">
                         <div className="w-16 h-20 flex-shrink-0 bg-stone-100 rounded-sm overflow-hidden border border-stone-100">
                           {item.productImage
-                            ? <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
+                            ? <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                             : <div className="w-full h-full flex items-center justify-center"><Package size={20} className="text-stone-300" /></div>}
                         </div>
                         <div className="flex-1 min-w-0 flex flex-col gap-1">
@@ -1770,9 +1762,9 @@ export default function OrdersPage() {
                             <div className="mt-1 bg-stone-50 border border-stone-200 rounded-sm px-3 py-2 flex flex-col gap-1">
                               <div className="flex items-center justify-between">
                                 <div className="flex gap-0.5">
-                                  {[1,2,3,4,5].map(s => <Star key={s} size={12} className={s <= review.rating ? 'fill-amber-400 text-amber-400' : 'fill-stone-200 text-stone-200'} />)}
+                                  {[1, 2, 3, 4, 5].map(s => <Star key={s} size={12} className={s <= review.rating ? 'fill-amber-400 text-amber-400' : 'fill-stone-200 text-stone-200'} />)}
                                 </div>
-                                <span className="text-[10px] text-stone-400">{new Date(review.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
+                                <span className="text-[10px] text-stone-400">{new Date(review.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                               </div>
                               {review.title && <p className="text-xs font-semibold text-stone-800">{review.title}</p>}
                               {review.body && <p className="text-xs text-stone-600 line-clamp-2 leading-relaxed">{review.body}</p>}
