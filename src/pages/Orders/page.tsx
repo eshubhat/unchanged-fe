@@ -6,11 +6,17 @@ import {
   cancelOrder,
   requestReturn,
   getOrderReturnRequests,
+  getMyReview,
+  createReview,
+  updateReview,
+  deleteReview,
   type ReturnRequest,
   type Order,
   type PaginatedOrders,
   type ProductSnapshot,
+  type MyReview,
 } from "../../utils/api";
+import ReviewModal from "../../components/ReviewModal/ReviewModal";
 import {
   Package,
   ChevronRight,
@@ -28,6 +34,8 @@ import {
   RefreshCcw,
   ShoppingBag,
   ChevronDown,
+  Star,
+  Edit3,
 } from "lucide-react";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -1150,8 +1158,20 @@ function OrderDetailDrawer({
         </div>
 
         {/* Drawer footer — cancel or return buttons */}
-        {order && !loading && (canCancel || canReturn || returnLoading) && (
+        {order && !loading && (
           <div className="px-6 py-4 border-t border-stone-200 bg-white flex-shrink-0 flex flex-col gap-2">
+            {/* Review button — always shown for delivered orders */}
+            {order.status === "delivered" && (
+              <Link
+                id="review-items-btn"
+                to="/reviews"
+                onClick={onClose}
+                className="w-full border border-stone-300 text-stone-700 py-3 text-sm font-bold uppercase tracking-wider hover:bg-stone-50 hover:border-stone-500 transition-colors rounded-sm flex items-center justify-center gap-2"
+              >
+                <Star size={15} />
+                Write Reviews
+              </Link>
+            )}
             {canReturn && (
               <button
                 id="return-order-btn"
@@ -1253,6 +1273,25 @@ function AuthGuard() {
   );
 }
 
+// ─── ReviewableItem type (for inline Reviews tab) ────────────────────────────
+
+interface ReviewableItem {
+  orderId: string;
+  orderNumber: string;
+  deliveredAt: string | null;
+  orderDate: string;
+  itemId: string;
+  variantId: string | null;
+  productId: string | null;
+  productName: string;
+  productImage: string | null;
+  size: string | null;
+  color: string | null;
+  sku: string | null;
+  quantity: number;
+  unitPrice: number;
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
@@ -1281,6 +1320,79 @@ export default function OrdersPage() {
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [returnOrder, setReturnOrder] = useState<Order | null>(null);
+
+  // ── Tab ──────────────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<'orders' | 'reviews'>('orders');
+
+  // ── Reviews tab state ─────────────────────────────────────────────────────
+  const [reviewItems, setReviewItems] = useState<ReviewableItem[]>([]);
+  const [reviewMap, setReviewMap] = useState<Record<string, MyReview | null>>({});
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [modalItem, setModalItem] = useState<ReviewableItem | null>(null);
+  const [reviewsLoaded, setReviewsLoaded] = useState(false);
+
+  const loadReviews = useCallback(async () => {
+    setReviewsLoading(true);
+    setReviewsError(null);
+    try {
+      const result = await getMyOrders({ status: 'delivered', limit: 50 });
+      const deliveredOrders: Order[] = result?.data ?? [];
+      const flat: ReviewableItem[] = [];
+      for (const order of deliveredOrders) {
+        for (const item of order.items ?? []) {
+          const snap = item.productSnapshot;
+          if (!snap?.productId) continue;
+          flat.push({
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            deliveredAt: order.deliveredAt ?? null,
+            orderDate: order.createdAt,
+            itemId: item.id,
+            variantId: item.variantId,
+            productId: snap.productId,
+            productName: snap.productName ?? 'Unknown Product',
+            productImage: snap.primaryImageUrl ?? null,
+            size: snap.size ?? null,
+            color: snap.color ?? null,
+            sku: snap.sku ?? null,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          });
+        }
+      }
+      const seen = new Set<string>();
+      const unique = flat.filter((i) => {
+        if (!i.productId || seen.has(i.productId)) return false;
+        seen.add(i.productId);
+        return true;
+      });
+      setReviewItems(unique);
+      const settled = await Promise.allSettled(unique.map((i) => getMyReview(i.productId!)));
+      const map: Record<string, MyReview | null> = {};
+      for (let idx = 0; idx < unique.length; idx++) {
+        const r = settled[idx];
+        map[unique[idx].productId!] = r.status === 'fulfilled' ? r.value : null;
+      }
+      setReviewMap(map);
+      setReviewsLoaded(true);
+    } catch (e: unknown) {
+      setReviewsError(e instanceof Error ? e.message : 'Failed to load reviews.');
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, []);
+
+  const handleTabChange = (tab: 'orders' | 'reviews') => {
+    setActiveTab(tab);
+    if (tab === 'reviews' && !reviewsLoaded) loadReviews();
+  };
+
+  const handleReviewSaved = (productId: string, saved: MyReview | null) => {
+    setReviewMap((prev) => ({ ...prev, [productId]: saved }));
+    setModalItem(null);
+  };
+
 
   const fetchOrders = useCallback(
     async (pg: number, status: string, sort: string) => {
@@ -1342,7 +1454,7 @@ export default function OrdersPage() {
     <div className="min-h-screen bg-[#fcf9f0] pt-28 pb-20 px-4 md:px-10 font-sans text-stone-900">
       <div className="max-w-4xl mx-auto">
 
-        {/* Page heading */}
+        {/* ── Page heading + Tab bar ── */}
         <div className="mb-8">
           <h1
             style={{
@@ -1353,14 +1465,44 @@ export default function OrdersPage() {
               textTransform: "uppercase",
             }}
           >
-            My Orders
+            {activeTab === 'orders' ? 'My Orders' : 'My Reviews'}
           </h1>
-          {data && (
+          {activeTab === 'orders' && data && (
             <p className="text-stone-400 text-sm mt-2">
               {data.meta.total} order{data.meta.total !== 1 ? "s" : ""}
             </p>
           )}
         </div>
+
+        {/* ── Tab switcher ── */}
+        {(isLoggedIn && !sessionExpired) && (
+          <div className="flex gap-0 border-b border-stone-200 mb-8">
+            <button
+              id="tab-orders"
+              onClick={() => handleTabChange('orders')}
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all -mb-px ${
+                activeTab === 'orders'
+                  ? 'border-stone-900 text-stone-900'
+                  : 'border-transparent text-stone-400 hover:text-stone-700'
+              }`}
+            >
+              <Package size={15} />
+              Orders
+            </button>
+            <button
+              id="tab-reviews"
+              onClick={() => handleTabChange('reviews')}
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all -mb-px ${
+                activeTab === 'reviews'
+                  ? 'border-stone-900 text-stone-900'
+                  : 'border-transparent text-stone-400 hover:text-stone-700'
+              }`}
+            >
+              <Star size={15} />
+              Reviews
+            </button>
+          </div>
+        )}
 
         {/* Session expired banner */}
         {sessionExpired && (
@@ -1382,7 +1524,7 @@ export default function OrdersPage() {
         {/* Auth guard */}
         {!isLoggedIn && !sessionExpired && <AuthGuard />}
 
-        {isLoggedIn && !sessionExpired && (
+        {isLoggedIn && !sessionExpired && activeTab === 'orders' && (
           <>
             {/* ── Filters + Sort ── */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
@@ -1499,6 +1641,175 @@ export default function OrdersPage() {
           </>
         )}
       </div>
+
+      {/* ── Reviews Tab Content ── */}
+      {isLoggedIn && !sessionExpired && activeTab === 'reviews' && (
+        <div className="max-w-4xl mx-auto px-4 md:px-10">
+          {/* Stats bar */}
+          {!reviewsLoading && reviewItems.length > 0 && (
+            <div className="flex items-center gap-6 py-3 border-t border-b border-stone-200 mb-8">
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400">Products</span>
+                <span className="text-xl font-bold text-stone-900">{reviewItems.length}</span>
+              </div>
+              <div className="w-px h-8 bg-stone-200" />
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400">Reviewed</span>
+                <span className="text-xl font-bold text-emerald-700">{reviewItems.filter(i => !!reviewMap[i.productId!]).length}</span>
+              </div>
+              <div className="w-px h-8 bg-stone-200" />
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400">Pending</span>
+                <span className="text-xl font-bold text-amber-600">{reviewItems.filter(i => !reviewMap[i.productId!]).length}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Loading */}
+          {reviewsLoading && (
+            <div className="flex flex-col items-center gap-4 py-20">
+              <Loader2 size={28} className="animate-spin text-stone-400" />
+              <p className="text-sm text-stone-400 uppercase tracking-widest font-medium">Loading your reviews…</p>
+            </div>
+          )}
+
+          {/* Error */}
+          {reviewsError && !reviewsLoading && (
+            <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-sm px-4 py-3 mb-6">
+              <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
+              <p className="text-sm text-red-700">{reviewsError}</p>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!reviewsLoading && !reviewsError && reviewItems.length === 0 && (
+            <div className="flex flex-col items-center gap-5 py-20 text-center">
+              <div className="w-16 h-16 rounded-full bg-stone-100 flex items-center justify-center">
+                <Star size={24} className="text-stone-300" />
+              </div>
+              <div>
+                <p className="font-semibold text-stone-800">No delivered orders yet</p>
+                <p className="text-sm text-stone-400 max-w-xs mt-1">Once an order is delivered, you can leave a review for each piece here.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Pending reviews */}
+          {!reviewsLoading && reviewItems.filter(i => !reviewMap[i.productId!]).length > 0 && (
+            <div className="flex flex-col gap-4 mb-8">
+              <div className="flex items-center gap-2">
+                <h2 className="text-[11px] font-extrabold uppercase tracking-widest text-stone-900">Awaiting Your Review</h2>
+                <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                  {reviewItems.filter(i => !reviewMap[i.productId!]).length}
+                </span>
+              </div>
+              <div className="flex flex-col gap-3">
+                {reviewItems.filter(i => !reviewMap[i.productId!]).map(item => (
+                  <div key={item.itemId} className="bg-white border border-stone-200 rounded-sm hover:border-stone-300 hover:shadow-sm transition-all">
+                    <div className="flex gap-4 p-4">
+                      <div className="w-16 h-20 flex-shrink-0 bg-stone-100 rounded-sm overflow-hidden border border-stone-100">
+                        {item.productImage
+                          ? <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
+                          : <div className="w-full h-full flex items-center justify-center"><Package size={20} className="text-stone-300" /></div>}
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col gap-1">
+                        <p className="font-semibold text-stone-900 text-sm leading-tight line-clamp-2">{item.productName}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {item.size && <span className="text-[10px] font-mono bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded">{item.size}</span>}
+                          {item.color && <span className="text-[10px] text-stone-500">{item.color}</span>}
+                          <span className="text-[10px] text-stone-400">Qty: {item.quantity}</span>
+                        </div>
+                        <p className="text-[11px] text-stone-400">
+                          Order <span className="font-mono font-semibold text-stone-600">{item.orderNumber}</span>
+                          {item.deliveredAt ? ` · Delivered ${new Date(item.deliveredAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="px-4 pb-4">
+                      <button
+                        id={`review-btn-${item.itemId}`}
+                        onClick={() => setModalItem(item)}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider rounded-sm transition-colors bg-stone-900 text-white hover:bg-stone-700"
+                      >
+                        <Star size={13} /> Write a Review
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Already reviewed */}
+          {!reviewsLoading && reviewItems.filter(i => !!reviewMap[i.productId!]).length > 0 && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={14} className="text-emerald-600" />
+                <h2 className="text-[11px] font-extrabold uppercase tracking-widest text-stone-900">Your Reviews</h2>
+                <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                  {reviewItems.filter(i => !!reviewMap[i.productId!]).length}
+                </span>
+              </div>
+              <div className="flex flex-col gap-3">
+                {reviewItems.filter(i => !!reviewMap[i.productId!]).map(item => {
+                  const review = reviewMap[item.productId!];
+                  return (
+                    <div key={item.itemId} className="bg-white border border-stone-200 rounded-sm hover:border-stone-300 hover:shadow-sm transition-all">
+                      <div className="flex gap-4 p-4">
+                        <div className="w-16 h-20 flex-shrink-0 bg-stone-100 rounded-sm overflow-hidden border border-stone-100">
+                          {item.productImage
+                            ? <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
+                            : <div className="w-full h-full flex items-center justify-center"><Package size={20} className="text-stone-300" /></div>}
+                        </div>
+                        <div className="flex-1 min-w-0 flex flex-col gap-1">
+                          <p className="font-semibold text-stone-900 text-sm leading-tight line-clamp-2">{item.productName}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {item.size && <span className="text-[10px] font-mono bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded">{item.size}</span>}
+                          </div>
+                          {review && (
+                            <div className="mt-1 bg-stone-50 border border-stone-200 rounded-sm px-3 py-2 flex flex-col gap-1">
+                              <div className="flex items-center justify-between">
+                                <div className="flex gap-0.5">
+                                  {[1,2,3,4,5].map(s => <Star key={s} size={12} className={s <= review.rating ? 'fill-amber-400 text-amber-400' : 'fill-stone-200 text-stone-200'} />)}
+                                </div>
+                                <span className="text-[10px] text-stone-400">{new Date(review.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>
+                              </div>
+                              {review.title && <p className="text-xs font-semibold text-stone-800">{review.title}</p>}
+                              {review.body && <p className="text-xs text-stone-600 line-clamp-2 leading-relaxed">{review.body}</p>}
+                              {!review.isApproved && <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1"><AlertCircle size={10} /> Pending approval</p>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="px-4 pb-4">
+                        <button
+                          id={`edit-review-btn-${item.itemId}`}
+                          onClick={() => setModalItem(item)}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider rounded-sm transition-colors border border-stone-300 text-stone-700 hover:bg-stone-50"
+                        >
+                          <Edit3 size={13} /> Edit Review
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Review Modal */}
+      {modalItem && (
+        <ReviewModal
+          productId={modalItem.productId!}
+          productName={modalItem.productName}
+          productImage={modalItem.productImage}
+          existingReview={reviewMap[modalItem.productId!]}
+          onClose={() => setModalItem(null)}
+          onSaved={(saved) => handleReviewSaved(modalItem.productId!, saved)}
+        />
+      )}
 
       {selectedOrderId && (
         <OrderDetailDrawer

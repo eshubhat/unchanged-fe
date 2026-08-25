@@ -64,8 +64,11 @@ interface Product {
   description?: string;
   shortDescription?: string;
   features?: string[];
+  category?: Category;
+  additionalCategories?: Category[];
   variants?: Variant[];
   images?: { id: string; url: string; isPrimary: boolean }[];
+  categoryId?: string;
 }
 
 interface Address {
@@ -170,8 +173,10 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
   const [isLimitedStock, setIsLimitedStock] = useState(false);
   const [frontImage, setFrontImage] = useState<File | null>(null);
   const [backImage, setBackImage] = useState<File | null>(null);
+  const [detailImage, setDetailImage] = useState<File | null>(null);
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
+  const detailInputRef = useRef<HTMLInputElement>(null);
   // Per-size stock quantities
   const SIZE_LIST = ["XS", "S", "M", "L", "XL", "XXL"] as const;
   type SizeKey = typeof SIZE_LIST[number];
@@ -186,6 +191,7 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState("");
+  const [additionalCategoryIds, setAdditionalCategoryIds] = useState<string[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
 
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -233,10 +239,11 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
       ? Math.max(0, Math.round(((parseFloat(basePrice) - parseFloat(sellingPrice)) / parseFloat(basePrice)) * 100))
       : 0;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isFront: boolean) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, slot: 'front' | 'back' | 'detail') => {
     if (e.target.files?.[0]) {
-      if (isFront) setFrontImage(e.target.files[0]);
-      else setBackImage(e.target.files[0]);
+      if (slot === 'front') setFrontImage(e.target.files[0]);
+      else if (slot === 'back') setBackImage(e.target.files[0]);
+      else setDetailImage(e.target.files[0]);
     }
   };
 
@@ -272,6 +279,7 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
           basePrice: parseFloat(basePrice),
           sellingPrice: parseFloat(sellingPrice),
           categoryId,
+          additionalCategoryIds: additionalCategoryIds.length > 0 ? additionalCategoryIds : undefined,
           isActive: true,
           isFeatured,
           isLimitedStock: isLimitedStock || autoIsLimited,
@@ -287,9 +295,10 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
       const resData = await productRes.json();
       const product = resData.data || resData;
 
-      const uploadedImages: { url: string; isPrimary: boolean }[] = [];
-      if (frontImage) uploadedImages.push({ url: await uploadImage(frontImage), isPrimary: true });
-      if (backImage) uploadedImages.push({ url: await uploadImage(backImage), isPrimary: false });
+      const uploadedImages: { url: string; isPrimary: boolean; altText?: string }[] = [];
+      if (frontImage) uploadedImages.push({ url: await uploadImage(frontImage), isPrimary: true, altText: 'Front view' });
+      if (backImage) uploadedImages.push({ url: await uploadImage(backImage), isPrimary: false, altText: 'Back view' });
+      if (detailImage) uploadedImages.push({ url: await uploadImage(detailImage), isPrimary: false, altText: 'Detail view' });
 
       if (uploadedImages.length > 0) {
         const linkRes = await fetch(`${API}/admin/products/${product.id}/images`, {
@@ -305,9 +314,11 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
       setFeatures([]); setNewFeature("");
       setIsFeatured(false); setIsLimitedStock(false);
       setSizeStock({ XS: "", S: "", M: "", L: "", XL: "", XXL: "" });
-      setFrontImage(null); setBackImage(null);
+      setAdditionalCategoryIds([]);
+      setFrontImage(null); setBackImage(null); setDetailImage(null);
       if (frontInputRef.current) frontInputRef.current.value = "";
       if (backInputRef.current) backInputRef.current.value = "";
+      if (detailInputRef.current) detailInputRef.current.value = "";
     } catch (err: any) {
       onToast(err.message || "Something went wrong.", "error");
     } finally {
@@ -327,7 +338,7 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
         {/* Category selector */}
         <div className="field-group">
           <div className="flex items-center justify-between">
-            <label className="field-label">Category</label>
+            <label className="field-label">Categories</label>
             <button
               type="button"
               onClick={() => setIsAddingCategory(!isAddingCategory)}
@@ -362,17 +373,63 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
           ) : categories.length === 0 ? (
             <div className="admin-input text-red-500 text-sm">No categories found. Add one.</div>
           ) : (
-            <select
-              required
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="admin-input"
-            >
-              <option value="" disabled>— Select a category —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <>
+              {/* Primary category — required */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs text-stone-500 font-semibold uppercase tracking-wide">Primary (required)</span>
+                <select
+                  required
+                  value={categoryId}
+                  onChange={(e) => {
+                    setCategoryId(e.target.value);
+                    // Remove newly selected primary from additional
+                    setAdditionalCategoryIds((prev) => prev.filter((id) => id !== e.target.value));
+                  }}
+                  className="admin-input"
+                >
+                  <option value="" disabled>— Select a category —</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Additional categories — optional multi-chip */}
+              <div className="flex flex-col gap-2 mt-2">
+                <span className="text-xs text-stone-500 font-semibold uppercase tracking-wide">Additional (optional)</span>
+                <div className="flex flex-wrap gap-2">
+                  {categories
+                    .filter((c) => c.id !== categoryId)
+                    .map((c) => {
+                      const selected = additionalCategoryIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() =>
+                            setAdditionalCategoryIds((prev) =>
+                              selected ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                            )
+                          }
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                            selected
+                              ? "bg-stone-900 text-white border-stone-900"
+                              : "bg-white text-stone-600 border-stone-300 hover:border-stone-500"
+                          }`}
+                        >
+                          {selected && <span className="mr-1">✓</span>}
+                          {c.name}
+                        </button>
+                      );
+                    })}
+                </div>
+                {additionalCategoryIds.length > 0 && (
+                  <p className="text-xs text-stone-400">
+                    {additionalCategoryIds.length} additional {additionalCategoryIds.length === 1 ? "category" : "categories"} selected
+                  </p>
+                )}
+              </div>
+            </>
           )}
         </div>
 
@@ -589,13 +646,18 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
       {/* Images */}
       <section className="admin-card flex flex-col gap-4">
         <h2 className="section-title m-0"><ImageIcon size={16} /> Images</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[
-            { label: "Front Image", file: frontImage, ref: frontInputRef, isFront: true },
-            { label: "Back Image", file: backImage, ref: backInputRef, isFront: false },
-          ].map(({ label, file, ref, isFront }) => (
+        <p className="text-xs text-stone-500">Upload up to 3 product images. The front image is required and will be used as the primary display image.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {([
+            { label: "Front Image", sublabel: "Primary · Required", file: frontImage, ref: frontInputRef, slot: 'front' as const, required: true },
+            { label: "Back Image", sublabel: "Optional", file: backImage, ref: backInputRef, slot: 'back' as const, required: false },
+            { label: "Detail Image", sublabel: "Optional", file: detailImage, ref: detailInputRef, slot: 'detail' as const, required: false },
+          ]).map(({ label, sublabel, file, ref, slot, required }) => (
             <div key={label} className="flex flex-col gap-2">
-              <label className="field-label text-center">{label}</label>
+              <div className="flex flex-col items-center gap-0.5">
+                <label className="field-label text-center">{label}</label>
+                <span className={`text-[10px] uppercase tracking-wider font-semibold ${required ? 'text-stone-800' : 'text-stone-400'}`}>{sublabel}</span>
+              </div>
               <div
                 className="image-drop-zone group"
                 onClick={() => ref.current?.click()}
@@ -604,15 +666,23 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
                   <img src={URL.createObjectURL(file)} alt={label} className="w-full h-full object-cover rounded-lg" />
                 ) : (
                   <>
-                    <Upload className="text-stone-400 mb-2 group-hover:text-stone-700 transition-colors" size={28} />
-                    <span className="text-stone-500 text-sm">Click to upload</span>
+                    <Upload className="text-stone-400 mb-2 group-hover:text-stone-700 transition-colors" size={24} />
+                    <span className="text-stone-500 text-xs text-center">Click to upload</span>
+                    {required && <span className="text-[10px] text-stone-400 mt-1">Required</span>}
                   </>
                 )}
               </div>
-              <input type="file" ref={ref} onChange={(e) => handleFileChange(e, isFront)} accept="image/*" className="hidden" />
+              <input type="file" ref={ref} onChange={(e) => handleFileChange(e, slot)} accept="image/*" className="hidden" />
               {file && (
-                <button type="button" onClick={() => { if (isFront) { setFrontImage(null); if (ref.current) ref.current.value = ""; } else { setBackImage(null); if (ref.current) ref.current.value = ""; } }}
-                  className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 mx-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (slot === 'front') { setFrontImage(null); if (ref.current) ref.current.value = ""; }
+                    else if (slot === 'back') { setBackImage(null); if (ref.current) ref.current.value = ""; }
+                    else { setDetailImage(null); if (ref.current) ref.current.value = ""; }
+                  }}
+                  className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 mx-auto"
+                >
                   <X size={12} /> Remove
                 </button>
               )}
@@ -1070,6 +1140,21 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
 
+  // Categories for multi-category support
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [editCategoryId, setEditCategoryId] = useState("");
+  const [editAdditionalCategoryIds, setEditAdditionalCategoryIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch(`${API}/categories`)
+      .then((r) => r.json())
+      .then((data) => {
+        const arr = Array.isArray(data) ? data : data?.data ?? [];
+        setCategories(arr);
+      })
+      .catch(() => {/* categories not critical for edit */});
+  }, []);
+
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
     try {
@@ -1099,6 +1184,9 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
       isFeatured: p.isFeatured,
       isLimitedStock: p.isLimitedStock ?? false,
     });
+    // Pre-populate category fields
+    setEditCategoryId(p.category?.id ?? p.categoryId ?? "");
+    setEditAdditionalCategoryIds((p.additionalCategories ?? []).map((c) => c.id));
     setExistingFront(p.images?.find((i: any) => i.isPrimary) || null);
     setExistingBack(p.images?.find((i: any) => !i.isPrimary) || null);
     setFrontImage(null);
@@ -1139,6 +1227,8 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
           isActive: form.isActive,
           isFeatured: form.isFeatured,
           isLimitedStock: form.isLimitedStock || autoIsLimited,
+          ...(editCategoryId && { categoryId: editCategoryId }),
+          additionalCategoryIds: editAdditionalCategoryIds,
         }),
       });
       if (!res.ok) {
@@ -1374,6 +1464,68 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
                   required
                 />
               </div>
+
+              {/* Categories */}
+              {categories.length > 0 && (
+                <div className="field-group">
+                  <label className="field-label">Categories</label>
+                  {/* Primary category */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                    <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#78716c" }}>Primary (required)</span>
+                    <select
+                      value={editCategoryId}
+                      onChange={(e) => {
+                        setEditCategoryId(e.target.value);
+                        setEditAdditionalCategoryIds((prev) => prev.filter((id) => id !== e.target.value));
+                      }}
+                      className="admin-input"
+                      style={{ fontSize: "0.8rem", padding: "0.5rem 0.75rem" }}
+                    >
+                      <option value="" disabled>— Select a category —</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Additional categories chip picker */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem", marginTop: "0.625rem" }}>
+                    <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#78716c" }}>Additional (optional)</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                      {categories
+                        .filter((c) => c.id !== editCategoryId)
+                        .map((c) => {
+                          const selected = editAdditionalCategoryIds.includes(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() =>
+                                setEditAdditionalCategoryIds((prev) =>
+                                  selected ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                                )
+                              }
+                              style={{
+                                padding: "4px 12px", borderRadius: 999, fontSize: "0.72rem", fontWeight: 600,
+                                border: selected ? "1.5px solid #1c1917" : "1.5px solid #d6d3d1",
+                                background: selected ? "#1c1917" : "white",
+                                color: selected ? "white" : "#78716c",
+                                cursor: "pointer", transition: "all 0.15s",
+                              }}
+                            >
+                              {selected && <span style={{ marginRight: 4 }}>✓</span>}
+                              {c.name}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    {editAdditionalCategoryIds.length > 0 && (
+                      <p style={{ fontSize: "0.7rem", color: "#a8a29e", marginTop: 2 }}>
+                        {editAdditionalCategoryIds.length} additional {editAdditionalCategoryIds.length === 1 ? "category" : "categories"} selected
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Prices */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>

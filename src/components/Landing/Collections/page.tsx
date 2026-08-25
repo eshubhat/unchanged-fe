@@ -12,9 +12,11 @@ import {
   Zap,
   AlertCircle,
   Star,
+  Ruler,
 } from "lucide-react";
 import { addToCart } from "../../../utils/cart";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import SizeGuideModal from "../../SizeGuideModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -234,6 +236,7 @@ function ProductModal({
   const [added, setAdded] = useState(false);
   const [sizeError, setSizeError] = useState(false);
   const [imgIndex, setImgIndex] = useState(0);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   const images = [product.imageFront, product.imageBack || product.imageFront].filter(Boolean) as string[];
 
@@ -377,7 +380,7 @@ function ProductModal({
           <X size={16} />
         </button>
 
-        <div className="flex flex-col md:flex-row overflow-y-auto md:overflow-hidden" style={{ maxHeight: "95vh" }}>
+        <div className="flex flex-col md:flex-row overflow-y-auto md:overflow-hidden" style={{ maxHeight: "95vh" }} data-lenis-prevent="true">
           {/* ── Left: Image Gallery ──────────────────────────────────────────── */}
           <div className="w-full md:w-[45%] flex-shrink-0 bg-stone-200 relative aspect-[4/5] md:aspect-auto md:min-h-[560px]">
             {images.length > 0 && (
@@ -434,7 +437,7 @@ function ProductModal({
           </div>
 
           {/* ── Right: Product Details ───────────────────────────────────────── */}
-          <div className="flex-1 flex flex-col gap-0 md:overflow-y-auto">
+          <div className="flex-1 flex flex-col gap-0 md:overflow-y-auto" data-lenis-prevent="true">
             <div className="p-6 md:p-8 flex flex-col gap-5">
               {/* Title & Rating */}
               <div>
@@ -490,7 +493,7 @@ function ProductModal({
 
               {/* Tax note */}
               <p className="text-[11px] text-stone-400 -mt-3">
-                Inclusive of all taxes · Free shipping above ₹999
+                Inclusive of all taxes.
               </p>
 
               {/* Description */}
@@ -518,6 +521,15 @@ function ProductModal({
                     <span className="text-xs font-bold uppercase tracking-wider text-stone-700">
                       Select Size
                     </span>
+                    <button
+                      id="size-guide-open-btn"
+                      onClick={() => setSizeGuideOpen(true)}
+                      className="flex items-center gap-1 text-[11px] text-stone-500 hover:text-stone-900 transition-colors underline underline-offset-2 cursor-pointer"
+                      aria-label="View size guide"
+                    >
+                      <Ruler size={11} />
+                      Size Guide
+                    </button>
                     {selectedSize && (
                       <span className="text-xs text-stone-500">
                         {selectedSize}
@@ -712,6 +724,9 @@ function ProductModal({
           </div>
         </div>
       </div>
+
+      {/* Size Guide Lightbox */}
+      {sizeGuideOpen && <SizeGuideModal onClose={() => setSizeGuideOpen(false)} />}
     </div>
   );
 }
@@ -721,12 +736,69 @@ function ProductModal({
 export default function CollectionSection() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [searchParams] = useSearchParams();
-  const searchQuery = searchParams.get("search")?.toLowerCase() || "";
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+
+  // ── All filter state lives in the URL so links are shareable ─────────────
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const searchQuery  = searchParams.get("search") || "";
+  const sortBy       = searchParams.get("sort") || "recommended";
+  const collectionFilter = (searchParams.get("collection") || "all") as "all" | "limited";
+  const selectedSizes: ProductSize[] = (searchParams.get("sizes") || "")
+    .split(",")
+    .filter((s): s is ProductSize => (ALL_SIZES as string[]).includes(s));
+
+  // ── Helpers that update URL params ───────────────────────────────────────
+  const setSort = (value: string) =>
+    setSearchParams((prev) => { const p = new URLSearchParams(prev); if (value === "recommended") p.delete("sort"); else p.set("sort", value); return p; }, { replace: true });
+
+  const setCollection = (value: "all" | "limited") =>
+    setSearchParams((prev) => { const p = new URLSearchParams(prev); if (value === "all") p.delete("collection"); else p.set("collection", value); return p; }, { replace: true });
+
+  const toggleSize = (size: ProductSize) =>
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      const current = (p.get("sizes") || "").split(",").filter(Boolean);
+      const next = current.includes(size) ? current.filter((s) => s !== size) : [...current, size];
+      if (next.length === 0) p.delete("sizes"); else p.set("sizes", next.join(","));
+      return p;
+    }, { replace: true });
+
+  const clearFilters = () =>
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.delete("sizes");
+      p.delete("sort");
+      p.delete("collection");
+      return p;
+    }, { replace: true });
+
+  const activeFiltersCount =
+    selectedSizes.length +
+    (collectionFilter !== "all" ? 1 : 0) +
+    (sortBy !== "recommended" ? 1 : 0);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/products`)
+    setLoading(true);
+    const query = new URLSearchParams();
+    query.set("limit", "100");
+    if (searchQuery) query.set("search", searchQuery);
+    if (selectedSizes.length > 0) query.set("sizes", selectedSizes.join(","));
+    if (collectionFilter === "limited") query.set("isFeatured", "true");
+    const sortMap: Record<string, string> = {
+      recommended: "newest",
+      price_asc: "price_asc",
+      price_desc: "price_desc",
+      newest: "newest",
+      popular: "popular",
+      rating: "rating",
+      discount: "discount",
+    };
+    query.set("sortBy", sortMap[sortBy] ?? "newest");
+
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/products?${query.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         const items = Array.isArray(data)
@@ -737,6 +809,9 @@ export default function CollectionSection() {
               ? data.data.data
               : [];
 
+        const meta = data?.meta ?? null;
+        setTotalCount(meta?.total ?? items.length);
+
         const formattedProducts: Product[] = items.map((item: any) => {
           const allImages: any[] = item.images ?? [];
           const frontImg =
@@ -745,15 +820,14 @@ export default function CollectionSection() {
             null;
           const backImg =
             allImages.find((img: any) => !img.isPrimary)?.url || frontImg;
-
           return {
             id: item.variants?.[0]?.id || item.id,
             productId: item.id,
             title: item.name,
             price: `₹${Math.round(item.sellingPrice)}`,
             basePrice:
-              item.basePrice && item.basePrice !== item.sellingPrice
-                ? item.basePrice
+              item.basePrice && Number(item.basePrice) !== Number(item.sellingPrice)
+                ? Number(item.basePrice)
                 : undefined,
             sellingPrice: item.sellingPrice,
             discountPercent: item.discountPercent ?? 0,
@@ -777,87 +851,109 @@ export default function CollectionSection() {
         setProducts([]);
         setLoading(false);
       });
-  }, []);
-
-  const displayedProducts = products.filter((product) =>
-    product.title.toLowerCase().includes(searchQuery)
-  );
+  }, [searchQuery, selectedSizes, sortBy, collectionFilter]);
 
   return (
-    <div
-      id="collections"
-      className="min-h-screen flex flex-col bg-[#fcf9f0] font-sans text-stone-900 pt-28 lg:pt-0"
-    >
+    <div id="collections" className="min-h-screen flex flex-col bg-[#fcf9f0] font-sans text-stone-900 pt-28 lg:pt-0">
       <main className="flex-1 max-w-screen-2xl mx-auto w-full flex flex-col md:flex-row px-2 sm:px-6 md:px-12 py-6 sm:py-8 gap-6 sm:gap-12 relative">
-        {/* Sidebar */}
         <aside className="w-full md:w-64 flex-shrink-0 hidden md:block">
           <div className="sticky top-28 flex flex-col gap-10 h-fit">
-            {/* Collections Filter */}
             <div className="flex flex-col gap-4">
-              <h3 className="font-bold uppercase tracking-wider text-sm">
-                Collections
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold uppercase tracking-wider text-sm">Collections</h3>
+                {activeFiltersCount > 0 && <button onClick={clearFilters} className="text-[10px] underline text-stone-500">Clear all</button>}
+              </div>
               <div className="border-b-2 border-black" />
               <ul className="space-y-3 text-sm text-stone-600">
-                <li className="cursor-pointer text-black font-medium">
-                  View All
-                </li>
-                <li className="cursor-pointer hover:text-black transition-colors">
-                  Men's Collection
-                </li>
-                <li className="cursor-pointer hover:text-black transition-colors">
-                  Women's Collection
-                </li>
+                <li onClick={() => setCollection("all")} className={`cursor-pointer ${collectionFilter === "all" ? "text-black font-medium" : "hover:text-black"}`}>View All</li>
+                <li onClick={() => setCollection("limited")} className={`cursor-pointer ${collectionFilter === "limited" ? "text-black font-medium" : "hover:text-black"}`}>Limited Edition</li>
               </ul>
             </div>
-
-            {/* Size Filter */}
             <div className="flex flex-col gap-4">
-              <h3 className="font-bold uppercase tracking-wider text-sm">
-                Size
-              </h3>
+              <h3 className="font-bold uppercase tracking-wider text-sm">Size {selectedSizes.length > 0 && <span className="text-amber-600">({selectedSizes.length})</span>}</h3>
               <div className="border-b-2 border-black" />
               <div className="grid grid-cols-3 gap-2">
                 {ALL_SIZES.map((size) => (
-                  <button
-                    key={size}
-                    className="border border-stone-300 py-2 text-sm hover:border-black transition-colors bg-white"
-                  >
+                  <button key={size} onClick={() => toggleSize(size)} className={`border py-2 text-sm transition-colors ${selectedSizes.includes(size) ? "bg-black text-white border-black" : "bg-white border-stone-300 hover:border-black"}`}>
                     {size}
                   </button>
                 ))}
               </div>
             </div>
-
-            {/* Sort Dropdown */}
             <div className="flex flex-col gap-4">
-              <h3 className="font-bold uppercase tracking-wider text-sm">
-                Sort By
-              </h3>
+              <h3 className="font-bold uppercase tracking-wider text-sm">Sort By</h3>
               <div className="border-b-2 border-black" />
-              <select className="w-full border border-stone-300 bg-white p-2 text-sm outline-none">
-                <option>Recommended</option>
-                <option>Price: Low to High</option>
-                <option>Price: High to Low</option>
-                <option>Newest Arrivals</option>
+              <select
+                value={sortBy}
+                onChange={(e) => setSort(e.target.value)}
+                className="w-full border border-stone-300 bg-white p-2 text-sm outline-none cursor-pointer hover:border-black transition-colors"
+              >
+                <option value="recommended">Recommended</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="popular">Most Popular</option>
+                <option value="rating">Top Rated</option>
+                <option value="discount">Biggest Discount</option>
               </select>
             </div>
+
+            {/* Size Guide Card */}
+            <button
+              id="sidebar-size-guide-btn"
+              onClick={() => setSizeGuideOpen(true)}
+              aria-label="Open size guide"
+              className="group w-full flex flex-col gap-2 border border-stone-300 bg-white p-4 hover:border-stone-900 hover:bg-[#141414] transition-all duration-300 text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Ruler size={15} className="text-stone-700 group-hover:text-[#fcf9f0] transition-colors" />
+                <span className="text-xs font-bold uppercase tracking-wider text-stone-700 group-hover:text-[#fcf9f0] transition-colors">
+                  Size Guide
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-500 leading-relaxed group-hover:text-stone-300 transition-colors">
+                Not sure about your size? View our full measurement chart.
+              </p>
+            </button>
           </div>
         </aside>
-
-        {/* Product Grid */}
         <div className="flex-1">
+          {/* Grid header */}
+          {!loading && (
+            <div className="flex items-center justify-between mb-6">
+              <p className="text-xs text-stone-500 uppercase tracking-widest">
+                {totalCount} {totalCount === 1 ? "product" : "products"}
+                {activeFiltersCount > 0 ? " · filtered" : ""}
+              </p>
+              {activeFiltersCount > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="text-[11px] text-stone-400 hover:text-red-500 transition-colors underline underline-offset-2"
+                >
+                  Clear all filters
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-6 sm:gap-x-6 sm:gap-y-12">
             {loading ? (
               <div className="col-span-full py-20 text-center text-stone-500">
                 Loading products…
               </div>
-            ) : displayedProducts.length === 0 ? (
-              <div className="col-span-full py-20 text-center text-stone-500">
-                No products found.
+            ) : products.length === 0 ? (
+              <div className="col-span-full py-20 text-center">
+                <p className="text-stone-500 mb-3">No products found.</p>
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-sm text-stone-600 hover:text-black underline underline-offset-2 transition-colors"
+                  >
+                    Clear filters to see all products
+                  </button>
+                )}
               </div>
             ) : (
-              displayedProducts.map((product) => (
+              products.map((product) => (
                 <ProductCard
                   key={String(product.id)}
                   product={product}
@@ -869,13 +965,16 @@ export default function CollectionSection() {
         </div>
       </main>
 
-      {/* Modal */}
+      {/* Product Modal */}
       {selectedProduct && (
         <ProductModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
         />
       )}
+
+      {/* Sidebar Size Guide Lightbox */}
+      {sizeGuideOpen && <SizeGuideModal onClose={() => setSizeGuideOpen(false)} />}
     </div>
   );
 }

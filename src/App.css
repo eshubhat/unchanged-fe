@@ -659,3 +659,33 @@ section {
     min-height: auto;
   }
 }
+
+/* Custom Tooltip */
+.has-tooltip {
+}
+
+.has-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) scale(0.95);
+  background-color: var(--base-200);
+  color: var(--base-100);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: "Host Grotesk", sans-serif;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  margin-top: 8px;
+  z-index: 9999;
+}
+
+.has-tooltip:hover::after {
+  transform: translateX(-50%) scale(1);
+  opacity: 1;
+}
