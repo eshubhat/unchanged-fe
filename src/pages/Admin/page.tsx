@@ -105,6 +105,7 @@ interface Order {
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
 const uploadImage = async (file: File) => {
+  // Step 1: Get a presigned upload URL from our API
   const presignRes = await fetch(`${API}/uploads/presign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -113,22 +114,40 @@ const uploadImage = async (file: File) => {
   if (!presignRes.ok) throw new Error("Failed to get presigned URL");
   const presignResJson = await presignRes.json();
   const presignData = presignResJson.data || presignResJson;
+  // presignData: { uploadUrl, key, publicUrl, method: 'POST' | 'PUT' }
 
-  const formData = new FormData();
-  formData.append("file", file);
-  const uploadRes = await fetch(presignData.uploadUrl, { method: "POST", body: formData });
-  if (!uploadRes.ok) throw new Error("Failed to upload file");
+  let publicUrl: string;
 
-  const uploadResJson = await uploadRes.json();
-  const uploadData = uploadResJson.data || uploadResJson;
+  if (presignData.method === "PUT") {
+    // S3 flow: PUT the raw file body directly to S3's pre-signed URL.
+    // S3 returns XML (not JSON), so we use the publicUrl from the presign step.
+    const uploadRes = await fetch(presignData.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!uploadRes.ok) throw new Error("Failed to upload file to S3");
+    publicUrl = presignData.publicUrl;
 
-  await fetch(`${API}/uploads/confirm`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key: uploadData.key }),
-  });
+    // Confirm so the backend can verify the object exists in S3
+    await fetch(`${API}/uploads/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: presignData.key }),
+    });
+  } else {
+    // Local storage flow: POST FormData to our own /uploads/receive endpoint.
+    // The response JSON contains the final publicUrl.
+    const formData = new FormData();
+    formData.append("file", file);
+    const uploadRes = await fetch(presignData.uploadUrl, { method: "POST", body: formData });
+    if (!uploadRes.ok) throw new Error("Failed to upload file");
+    const uploadResJson = await uploadRes.json();
+    const uploadData = uploadResJson.data || uploadResJson;
+    publicUrl = uploadData.publicUrl;
+  }
 
-  return uploadData.publicUrl;
+  return publicUrl;
 };
 
 function Toast({
@@ -1135,10 +1154,13 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
 
   const [existingFront, setExistingFront] = useState<{ id: string, url: string } | null>(null);
   const [existingBack, setExistingBack] = useState<{ id: string, url: string } | null>(null);
+  const [existingDetail, setExistingDetail] = useState<{ id: string, url: string } | null>(null);
   const [frontImage, setFrontImage] = useState<File | null>(null);
   const [backImage, setBackImage] = useState<File | null>(null);
+  const [detailImage, setDetailImage] = useState<File | null>(null);
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
+  const detailInputRef = useRef<HTMLInputElement>(null);
 
   // Categories for multi-category support
   const [categories, setCategories] = useState<Category[]>([]);
@@ -1188,9 +1210,12 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
     setEditCategoryId(p.category?.id ?? p.categoryId ?? "");
     setEditAdditionalCategoryIds((p.additionalCategories ?? []).map((c) => c.id));
     setExistingFront(p.images?.find((i: any) => i.isPrimary) || null);
-    setExistingBack(p.images?.find((i: any) => !i.isPrimary) || null);
+    const nonPrimary = (p.images ?? []).filter((i: any) => !i.isPrimary);
+    setExistingBack(nonPrimary[0] ?? null);
+    setExistingDetail(nonPrimary[1] ?? null);
     setFrontImage(null);
     setBackImage(null);
+    setDetailImage(null);
     setDrawerOpen(true);
   };
 
@@ -1251,7 +1276,10 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
         }
       }
 
-      const oldBack = selectedProduct.images?.find((i: any) => !i.isPrimary);
+      const nonPrimaryOld = (selectedProduct.images ?? []).filter((i: any) => !i.isPrimary);
+      const oldBack = nonPrimaryOld[0] ?? null;
+      const oldDetail = nonPrimaryOld[1] ?? null;
+
       if (backImage || (!existingBack && oldBack)) {
         if (oldBack) {
           await fetch(`${API}/admin/products/${selectedProduct.id}/images/${oldBack.id}`, { method: 'DELETE' });
@@ -1261,7 +1289,21 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
           await fetch(`${API}/admin/products/${selectedProduct.id}/images`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ images: [{ url, isPrimary: false }] })
+            body: JSON.stringify({ images: [{ url, isPrimary: false, altText: 'Back view' }] })
+          });
+        }
+      }
+
+      if (detailImage || (!existingDetail && oldDetail)) {
+        if (oldDetail) {
+          await fetch(`${API}/admin/products/${selectedProduct.id}/images/${oldDetail.id}`, { method: 'DELETE' });
+        }
+        if (detailImage) {
+          const url = await uploadImage(detailImage);
+          await fetch(`${API}/admin/products/${selectedProduct.id}/images`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images: [{ url, isPrimary: false, altText: 'Detail view' }] })
           });
         }
       }
@@ -1274,11 +1316,15 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
       setSelectedProduct(updated);
       setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       setExistingFront(updated.images?.find((i: any) => i.isPrimary) || null);
-      setExistingBack(updated.images?.find((i: any) => !i.isPrimary) || null);
+      const updatedNonPrimary = (updated.images ?? []).filter((i: any) => !i.isPrimary);
+      setExistingBack(updatedNonPrimary[0] ?? null);
+      setExistingDetail(updatedNonPrimary[1] ?? null);
       setFrontImage(null);
       setBackImage(null);
+      setDetailImage(null);
       if (frontInputRef.current) frontInputRef.current.value = "";
       if (backInputRef.current) backInputRef.current.value = "";
+      if (detailInputRef.current) detailInputRef.current.value = "";
 
       onToast("Product updated successfully!", "success");
     } catch (err: any) {
@@ -1599,45 +1645,43 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
               {/* Images */}
               <div style={{ borderTop: "1px solid #e7e5e4", paddingTop: "1rem" }}>
                 <p className="section-title" style={{ marginTop: "0.5rem" }}><ImageIcon size={14} /> Images</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <p style={{ fontSize: "0.7rem", color: "#a8a29e", marginBottom: "0.75rem" }}>Front is required and shown as the primary image. Back and Detail are optional.</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
                   {([
-                    { label: "Front", file: frontImage, existing: existingFront, setExisting: setExistingFront, ref: frontInputRef, isFront: true },
-                    { label: "Back", file: backImage, existing: existingBack, setExisting: setExistingBack, ref: backInputRef, isFront: false },
-                  ] as const).map(({ label, file, existing, setExisting, ref, isFront }) => {
+                    { label: "Front", sublabel: "Primary", file: frontImage, existing: existingFront, setExisting: setExistingFront, setFile: setFrontImage, ref: frontInputRef },
+                    { label: "Back", sublabel: "Optional", file: backImage, existing: existingBack, setExisting: setExistingBack, setFile: setBackImage, ref: backInputRef },
+                    { label: "Detail", sublabel: "Optional", file: detailImage, existing: existingDetail, setExisting: setExistingDetail, setFile: setDetailImage, ref: detailInputRef },
+                  ] as const).map(({ label, sublabel, file, existing, setExisting, setFile, ref }) => {
                     const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-                      if (e.target.files?.[0]) {
-                        if (isFront) setFrontImage(e.target.files[0]);
-                        else setBackImage(e.target.files[0]);
-                      }
+                      if (e.target.files?.[0]) setFile(e.target.files[0]);
                     };
                     const removeFile = () => {
-                      if (file) {
-                        if (isFront) setFrontImage(null); else setBackImage(null);
-                        if (ref.current) ref.current.value = "";
-                      } else if (existing) {
-                        setExisting(null);
-                      }
+                      if (file) { setFile(null); if (ref.current) ref.current.value = ""; }
+                      else if (existing) { setExisting(null); }
                     };
                     return (
-                      <div key={label} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                        <label className="field-label" style={{ textAlign: "center" }}>{label} Image</label>
-                        <div className="image-drop-zone group" style={{ height: 160 }} onClick={() => ref.current?.click()}>
+                      <div key={label} style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                        <div style={{ textAlign: "center" }}>
+                          <label className="field-label" style={{ display: "block" }}>{label}</label>
+                          <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: sublabel === "Primary" ? "#1c1917" : "#a8a29e" }}>{sublabel}</span>
+                        </div>
+                        <div className="image-drop-zone group" style={{ height: 130 }} onClick={() => ref.current?.click()}>
                           {file ? (
                             <img src={URL.createObjectURL(file)} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} />
                           ) : existing ? (
                             <img src={existing.url} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} />
                           ) : (
                             <>
-                              <Upload className="text-stone-400 group-hover:text-stone-700" style={{ marginBottom: 6 }} size={22} />
-                              <span style={{ fontSize: "0.7rem", color: "#78716c" }}>Click to upload</span>
+                              <Upload className="text-stone-400 group-hover:text-stone-700" style={{ marginBottom: 4 }} size={18} />
+                              <span style={{ fontSize: "0.65rem", color: "#78716c" }}>Click to upload</span>
                             </>
                           )}
                         </div>
                         <input type="file" ref={ref} onChange={handleFile} accept="image/*" style={{ display: "none" }} />
                         {(file || existing) && (
                           <button type="button" onClick={removeFile}
-                            style={{ fontSize: "0.7rem", color: "#ef4444", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                            <X size={11} /> Remove
+                            style={{ fontSize: "0.65rem", color: "#ef4444", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+                            <X size={10} /> Remove
                           </button>
                         )}
                       </div>

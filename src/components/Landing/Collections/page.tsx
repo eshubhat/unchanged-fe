@@ -45,6 +45,7 @@ type Product = {
   features?: string[];
   imageFront: string | null;
   imageBack: string | null;
+  imageDetail: string | null;
   isLimited: boolean;
   variants?: Variant[];
   averageRating?: number;
@@ -238,7 +239,11 @@ function ProductModal({
   const [imgIndex, setImgIndex] = useState(0);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
-  const images = [product.imageFront, product.imageBack || product.imageFront].filter(Boolean) as string[];
+  const images = [
+    product.imageFront,
+    product.imageBack !== product.imageFront ? product.imageBack : null,
+    product.imageDetail,
+  ].filter(Boolean) as string[];
 
   // Build a size → variant map
   const sizeMap = new Map<ProductSize, Variant>();
@@ -818,8 +823,9 @@ export default function CollectionSection() {
             allImages.find((img: any) => img.isPrimary)?.url ||
             allImages[0]?.url ||
             null;
-          const backImg =
-            allImages.find((img: any) => !img.isPrimary)?.url || frontImg;
+          const nonPrimaryImgs = allImages.filter((img: any) => !img.isPrimary);
+          const backImg = nonPrimaryImgs[0]?.url || null;
+          const detailImg = nonPrimaryImgs[1]?.url || null;
           return {
             id: item.variants?.[0]?.id || item.id,
             productId: item.id,
@@ -836,6 +842,7 @@ export default function CollectionSection() {
             features: item.features,
             imageFront: frontImg,
             imageBack: backImg,
+            imageDetail: detailImg,
             isLimited: item.isFeatured,
             variants: item.variants ?? [],
             averageRating: item.averageRating,
