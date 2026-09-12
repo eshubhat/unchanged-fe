@@ -26,7 +26,7 @@ export default function Footer() {
             <ul className="flex flex-col gap-4 text-sm text-stone-600">
               <li><a href="#" className="hover:text-black font-light transition-colors hover:underline!" title="Shipping Information">Shipping Information</a></li>
               <li><a href="#" className="hover:text-black font-light transition-colors hover:underline!" title="Returns & Exchanges">Returns & Exchanges</a></li>
-              <li>
+              {/* <li>
                 <button
                   onClick={() => setSizeGuideOpen(true)}
                   id="footer-size-guide-btn"
@@ -35,7 +35,7 @@ export default function Footer() {
                 >
                   Size Guide
                 </button>
-              </li>
+              </li> */}
               <li><Link to="/faq" className="hover:text-black font-light transition-colors hover:underline!" title="Frequently Asked Questions">FAQ</Link></li>
             </ul>
           </div>
@@ -64,7 +64,7 @@ export default function Footer() {
                 </a>
               </li>
 
-              <li><a href="#" className="hover:text-black transition-colors hover:underline!" title="Brand Philosophy">Brand Philosophy</a></li>
+              {/* <li><a href="#" className="hover:text-black transition-colors hover:underline!" title="Brand Philosophy">Brand Philosophy</a></li> */}
             </ul>
           </div>
 

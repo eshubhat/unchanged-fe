@@ -288,7 +288,12 @@ function ProductModal({
     };
   }, []);
 
-  const closeModal = useCallback(() => {
+  const closeModal = useCallback((pushBack = false) => {
+    // If closed by user action (not by popstate), pop the fake history entry
+    if (pushBack && window.history.state?.productModal) {
+      window.history.back();
+      return; // popstate handler will call onClose
+    }
     gsap.to(backdropRef.current, { opacity: 0, duration: 0.2 });
     gsap.to(panelRef.current, {
       y: 40,
@@ -302,11 +307,28 @@ function ProductModal({
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeModal();
+      if (e.key === "Escape") closeModal(true);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [closeModal]);
+
+  // Handle mobile system back button — close modal instead of leaving the site
+  useEffect(() => {
+    const handlePopState = () => {
+      // popstate fires when back is pressed; just close modal (history already moved back)
+      gsap.to(backdropRef.current, { opacity: 0, duration: 0.2 });
+      gsap.to(panelRef.current, {
+        y: 40,
+        opacity: 0,
+        duration: 0.25,
+        ease: "power2.in",
+        onComplete: onClose,
+      });
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [onClose]);
 
   const validateAndGetCartItem = () => {
     if (hasVariants && !selectedSize) {
@@ -365,7 +387,7 @@ function ProductModal({
       className="fixed inset-0 z-[500] flex items-end md:items-center justify-center p-0 md:p-6"
       style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
       onClick={(e) => {
-        if (e.target === backdropRef.current) closeModal();
+        if (e.target === backdropRef.current) closeModal(true);
       }}
     >
       <div
@@ -379,7 +401,7 @@ function ProductModal({
       >
         {/* Close button */}
         <button
-          onClick={closeModal}
+          onClick={() => closeModal(true)}
           className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center bg-[#141414] text-white hover:bg-[#ef4444] transition-colors"
         >
           <X size={16} />
@@ -745,12 +767,19 @@ export default function CollectionSection() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
+  // Push a fake history entry so mobile back button closes the modal
+  const openProduct = (product: Product) => {
+    window.history.pushState({ productModal: true }, "");
+    setSelectedProduct(product);
+  };
+
   // ── All filter state lives in the URL so links are shareable ─────────────
   const [searchParams, setSearchParams] = useSearchParams();
 
   const searchQuery  = searchParams.get("search") || "";
   const sortBy       = searchParams.get("sort") || "recommended";
   const collectionFilter = (searchParams.get("collection") || "all") as "all" | "limited";
+  const categoryFilter   = searchParams.get("category") || "";
   const selectedSizes: ProductSize[] = (searchParams.get("sizes") || "")
     .split(",")
     .filter((s): s is ProductSize => (ALL_SIZES as string[]).includes(s));
@@ -761,6 +790,9 @@ export default function CollectionSection() {
 
   const setCollection = (value: "all" | "limited") =>
     setSearchParams((prev) => { const p = new URLSearchParams(prev); if (value === "all") p.delete("collection"); else p.set("collection", value); return p; }, { replace: true });
+
+  const setCategory = (value: string) =>
+    setSearchParams((prev) => { const p = new URLSearchParams(prev); if (!value) p.delete("category"); else p.set("category", value); return p; }, { replace: true });
 
   const toggleSize = (size: ProductSize) =>
     setSearchParams((prev) => {
@@ -777,13 +809,15 @@ export default function CollectionSection() {
       p.delete("sizes");
       p.delete("sort");
       p.delete("collection");
+      p.delete("category");
       return p;
     }, { replace: true });
 
   const activeFiltersCount =
     selectedSizes.length +
     (collectionFilter !== "all" ? 1 : 0) +
-    (sortBy !== "recommended" ? 1 : 0);
+    (sortBy !== "recommended" ? 1 : 0) +
+    (categoryFilter ? 1 : 0);
 
   useEffect(() => {
     setLoading(true);
@@ -792,6 +826,7 @@ export default function CollectionSection() {
     if (searchQuery) query.set("search", searchQuery);
     if (selectedSizes.length > 0) query.set("sizes", selectedSizes.join(","));
     if (collectionFilter === "limited") query.set("isFeatured", "true");
+    if (categoryFilter) query.set("categorySlug", categoryFilter);
     const sortMap: Record<string, string> = {
       recommended: "newest",
       price_asc: "price_asc",
@@ -858,7 +893,7 @@ export default function CollectionSection() {
         setProducts([]);
         setLoading(false);
       });
-  }, [searchQuery, selectedSizes, sortBy, collectionFilter]);
+  }, [searchQuery, selectedSizes, sortBy, collectionFilter, categoryFilter]);
 
   return (
     <div id="collections" className="min-h-screen flex flex-col bg-[#fcf9f0] font-sans text-stone-900 pt-28 lg:pt-0">
@@ -874,6 +909,25 @@ export default function CollectionSection() {
               <ul className="space-y-3 text-sm text-stone-600">
                 <li onClick={() => setCollection("all")} className={`cursor-pointer ${collectionFilter === "all" ? "text-black font-medium" : "hover:text-black"}`}>View All</li>
                 <li onClick={() => setCollection("limited")} className={`cursor-pointer ${collectionFilter === "limited" ? "text-black font-medium" : "hover:text-black"}`}>Limited Edition</li>
+              </ul>
+            </div>
+            {/* Gender filter */}
+            <div className="flex flex-col gap-4">
+              <h3 className="font-bold uppercase tracking-wider text-sm">Gender</h3>
+              <div className="border-b-2 border-black" />
+              <ul className="space-y-3 text-sm text-stone-600">
+                <li
+                  onClick={() => setCategory("")}
+                  className={`cursor-pointer ${!categoryFilter ? "text-black font-medium" : "hover:text-black"}`}
+                >All</li>
+                <li
+                  onClick={() => setCategory("mens")}
+                  className={`cursor-pointer ${categoryFilter === "mens" ? "text-black font-medium" : "hover:text-black"}`}
+                >Men's</li>
+                <li
+                  onClick={() => setCategory("womens")}
+                  className={`cursor-pointer ${categoryFilter === "womens" ? "text-black font-medium" : "hover:text-black"}`}
+                >Women's</li>
               </ul>
             </div>
             <div className="flex flex-col gap-4">
@@ -941,6 +995,26 @@ export default function CollectionSection() {
               )}
             </div>
           )}
+          {/* Mobile gender strip — visible on mobile only, hidden on desktop where sidebar shows it */}
+          <div className="flex md:hidden gap-2 mb-4">
+            {[
+              { label: "All", value: "" },
+              { label: "Men's", value: "mens" },
+              { label: "Women's", value: "womens" },
+            ].map(({ label, value }) => (
+              <button
+                key={value}
+                onClick={() => setCategory(value)}
+                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider border transition-colors ${
+                  categoryFilter === value
+                    ? "bg-[#141414] text-white border-[#141414]"
+                    : "bg-white text-stone-600 border-stone-300 hover:border-black"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-6 sm:gap-x-6 sm:gap-y-12">
             {loading ? (
@@ -964,7 +1038,7 @@ export default function CollectionSection() {
                 <ProductCard
                   key={String(product.id)}
                   product={product}
-                  onClick={setSelectedProduct}
+                  onClick={openProduct}
                 />
               ))
             )}

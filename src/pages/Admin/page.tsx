@@ -407,10 +407,18 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
                   className="admin-input"
                 >
                   <option value="" disabled>— Select a category —</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
+                  {categories.map((c) => {
+                    const isPrebuilt = c.slug === "mens" || c.slug === "womens";
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {isPrebuilt ? (c.slug === "mens" ? "♂ " : "♀ ") : ""}{c.name}
+                      </option>
+                    );
+                  })}
                 </select>
+                <p className="text-[10px] text-stone-400 flex items-center gap-1">
+                  <span>♂</span><span>♀</span> = Pre-built gender categories (linked to Men's / Women's navbar)
+                </p>
               </div>
 
               {/* Additional categories — optional multi-chip */}
@@ -421,6 +429,7 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
                     .filter((c) => c.id !== categoryId)
                     .map((c) => {
                       const selected = additionalCategoryIds.includes(c.id);
+                      const isPrebuilt = c.slug === "mens" || c.slug === "womens";
                       return (
                         <button
                           key={c.id}
@@ -433,10 +442,13 @@ function AddProductTab({ onToast }: { onToast: (msg: string, type: "success" | "
                           className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                             selected
                               ? "bg-stone-900 text-white border-stone-900"
-                              : "bg-white text-stone-600 border-stone-300 hover:border-stone-500"
+                              : isPrebuilt
+                                ? "bg-stone-50 text-stone-700 border-stone-400 hover:border-stone-700"
+                                : "bg-white text-stone-600 border-stone-300 hover:border-stone-500"
                           }`}
                         >
                           {selected && <span className="mr-1">✓</span>}
+                          {isPrebuilt && <span className="mr-1 opacity-60">{c.slug === "mens" ? "♂" : "♀"}</span>}
                           {c.name}
                         </button>
                       );
