@@ -90,7 +90,9 @@ a {
 }
 
 .navbar-background {
-  background-color: var(--base-100);
+  background-color: rgba(252, 249, 240, 0.65);
+  /* backdrop-filter: blur(10px); */
+  /* -webkit-backdrop-filter: blur(10px); */
   pointer-events: none;
   z-index: 0;
 }
@@ -455,6 +457,19 @@ section {
   opacity: 0.6;
 }
 
+/* Active state for Men / Women navbar links */
+.navbar-link-active {
+  opacity: 1 !important;
+  border-bottom: 2px solid var(--base-200);
+  padding-bottom: 2px;
+}
+
+.navbar-mobile-nav .navbar-link-active {
+  opacity: 1 !important;
+  border-bottom: 2px solid var(--base-200);
+  padding-bottom: 2px;
+}
+
 .navbar-mobile-actions {
   display: flex;
   flex-direction: column;
@@ -661,8 +676,7 @@ section {
 }
 
 /* Custom Tooltip */
-.has-tooltip {
-}
+.has-tooltip {}
 
 .has-tooltip::after {
   content: attr(data-tooltip);
