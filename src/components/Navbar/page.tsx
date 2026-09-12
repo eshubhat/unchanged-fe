@@ -4,7 +4,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import companyLogo from "../../assets/company_logo-cropped.svg";
 import { lenis } from "../../utils/lenis"
-import { Search, ShoppingCart, Package, User, Ruler, MessageCircle, Mail, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, ShoppingCart, Package, User, MessageCircle, Mail, ChevronUp, ChevronDown } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getCart } from "../../utils/cart";
 import navbarImage from "../../assets/bg-hero.webp"
