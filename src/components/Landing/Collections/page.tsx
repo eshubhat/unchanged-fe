@@ -676,10 +676,7 @@ function ProductModal({
                     onClick={() =>
                       setQuantity((q) => Math.min(q + 1, maxQty || 10))
                     }
-                    disabled={
-                      quantity >= (maxQty || 10) ||
-                      (hasVariants && !selectedSize)
-                    }
+                    disabled={quantity >= (maxQty || 10)}
                     className="w-10 h-10 border border-stone-300 flex items-center justify-center hover:bg-stone-100 disabled:opacity-30 transition-colors"
                   >
                     <Plus size={14} />
