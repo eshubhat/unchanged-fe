@@ -1158,6 +1158,10 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Inventory editing within the drawer
+  const [stockUpdates, setStockUpdates] = useState<Record<string, string>>({});
+  const [savingVariant, setSavingVariant] = useState<string | null>(null);
+
   // Form state mirrors selectedProduct
   const [form, setForm] = useState({
     name: "", basePrice: "", sellingPrice: "", description: "",
@@ -1233,7 +1237,35 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
 
   const closeDrawer = () => {
     setDrawerOpen(false);
+    setStockUpdates({});
     setTimeout(() => setSelectedProduct(null), 300);
+  };
+
+  const handleInventoryUpdate = async (variantId: string) => {
+    if (!selectedProduct) return;
+    const qty = parseInt(stockUpdates[variantId] ?? "");
+    if (isNaN(qty) || qty < 0) { onToast("Enter a valid quantity", "error"); return; }
+    setSavingVariant(variantId);
+    try {
+      const res = await fetch(`${API}/admin/products/${selectedProduct.id}/variants/${variantId}/stock`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: qty }),
+      });
+      if (!res.ok) throw new Error("Failed to update stock");
+      onToast("Stock updated!", "success");
+      setStockUpdates((prev) => { const n = { ...prev }; delete n[variantId]; return n; });
+      // Refresh product data in the drawer
+      const refreshed = await fetch(`${API}/admin/products/${selectedProduct.id}`, { cache: 'no-store' });
+      const refreshedData = await refreshed.json();
+      const updatedProduct = refreshedData?.data || refreshedData;
+      setSelectedProduct(updatedProduct);
+      setProducts((prev) => prev.map((p) => (p.id === selectedProduct.id ? updatedProduct : p)));
+    } catch (err: any) {
+      onToast(err.message, "error");
+    } finally {
+      setSavingVariant(null);
+    }
   };
 
   const discount =
@@ -1653,6 +1685,106 @@ function EditProductTab({ onToast }: { onToast: (msg: string, type: "success" | 
                   </div>
                 </label>
               </div>
+
+              {/* Inventory / Stock by Size */}
+              {selectedProduct?.variants && selectedProduct.variants.length > 0 && (() => {
+                const ORDERED_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+                const sizeVariants = selectedProduct.variants!.filter((v) => v.size);
+                const nonSizeVariants = selectedProduct.variants!.filter((v) => !v.size);
+                return (
+                  <div style={{ borderTop: "1px solid #e7e5e4", paddingTop: "1rem" }}>
+                    <p className="section-title" style={{ marginTop: "0.25rem", marginBottom: "0.75rem" }}>
+                      <Boxes size={14} /> Inventory
+                    </p>
+
+                    {sizeVariants.length > 0 && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.625rem" }}>
+                        {ORDERED_SIZES.map((size) => {
+                          const v = sizeVariants.find((sv) => sv.size === size);
+                          if (!v) return null;
+                          const total = v.inventory?.quantity ?? 0;
+                          const reserved = v.inventory?.reservedQuantity ?? 0;
+                          const avail = Math.max(0, total - reserved);
+                          const isOut = avail === 0;
+                          const isLow = avail > 0 && avail <= 5;
+                          return (
+                            <div key={v.id} style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                              <div style={{
+                                textAlign: "center", fontSize: "0.65rem", fontWeight: 800,
+                                textTransform: "uppercase", letterSpacing: "0.08em",
+                                padding: "4px 0", borderRadius: 6, border: "1px solid",
+                                background: isOut ? "#fef2f2" : isLow ? "#fff7ed" : "#f0fdf4",
+                                color: isOut ? "#dc2626" : isLow ? "#c2410c" : "#15803d",
+                                borderColor: isOut ? "#fca5a5" : isLow ? "#fdba74" : "#86efac",
+                              }}>
+                                {size}
+                              </div>
+                              <div style={{ textAlign: "center" }}>
+                                <span style={{ fontSize: "1.1rem", fontWeight: 800, color: isOut ? "#dc2626" : isLow ? "#ea580c" : "#1c1917" }}>
+                                  {avail}
+                                </span>
+                                {reserved > 0 && (
+                                  <p style={{ margin: 0, fontSize: "0.6rem", color: "#a8a29e" }}>{reserved} reserved</p>
+                                )}
+                              </div>
+                              <input
+                                type="number" min="0"
+                                value={stockUpdates[v.id] ?? ""}
+                                onChange={(e) => setStockUpdates((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                                placeholder="Set"
+                                className="admin-input"
+                                style={{ fontSize: "0.75rem", padding: "0.375rem 0.5rem", textAlign: "center" }}
+                              />
+                              <button
+                                onClick={() => handleInventoryUpdate(v.id)}
+                                disabled={savingVariant === v.id || stockUpdates[v.id] === undefined || stockUpdates[v.id] === ""}
+                                className="admin-btn-primary"
+                                style={{ padding: "0.375rem", fontSize: "0.65rem", width: "100%", opacity: (savingVariant === v.id || !stockUpdates[v.id]) ? 0.4 : 1 }}
+                              >
+                                {savingVariant === v.id ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
+                                {savingVariant === v.id ? "..." : "Save"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {nonSizeVariants.map((v) => {
+                      const total = v.inventory?.quantity ?? 0;
+                      const reserved = v.inventory?.reservedQuantity ?? 0;
+                      const avail = Math.max(0, total - reserved);
+                      const isLow = avail <= 5;
+                      return (
+                        <div key={v.id} style={{ display: "flex", alignItems: "center", gap: "0.625rem", background: "#fafaf9", border: "1px solid #e7e5e4", borderRadius: 8, padding: "0.625rem", marginTop: sizeVariants.length > 0 ? "0.625rem" : 0 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: "#1c1917" }}>{v.sku}</p>
+                            <p style={{ margin: 0, fontSize: "0.65rem", color: isLow ? "#ea580c" : "#78716c", fontWeight: isLow ? 700 : 400 }}>
+                              {avail} available{reserved > 0 ? `, ${reserved} reserved` : ""}
+                            </p>
+                          </div>
+                          <input
+                            type="number" min="0"
+                            value={stockUpdates[v.id] ?? ""}
+                            onChange={(e) => setStockUpdates((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                            placeholder="Set qty"
+                            className="admin-input"
+                            style={{ width: 90, fontSize: "0.75rem", padding: "0.375rem 0.5rem" }}
+                          />
+                          <button
+                            onClick={() => handleInventoryUpdate(v.id)}
+                            disabled={savingVariant === v.id || stockUpdates[v.id] === undefined || stockUpdates[v.id] === ""}
+                            className="admin-btn-primary"
+                            style={{ padding: "0.5rem 0.75rem", fontSize: "0.7rem", opacity: (savingVariant === v.id || !stockUpdates[v.id]) ? 0.4 : 1 }}
+                          >
+                            {savingVariant === v.id ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               {/* Images */}
               <div style={{ borderTop: "1px solid #e7e5e4", paddingTop: "1rem" }}>

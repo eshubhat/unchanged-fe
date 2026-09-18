@@ -273,7 +273,7 @@ export default function CheckoutPage() {
           <span>₹{subtotal.toLocaleString("en-IN")}</span>
         </div>
         <div className="flex justify-between text-stone-600">
-          <span>Processing Fee (2%)</span>
+          <span>Delivery Charge (2%)</span>
           <span>₹{Math.round(subtotal * 0.02).toLocaleString("en-IN")}</span>
         </div>
         <div className="flex justify-between text-emerald-600">

@@ -520,7 +520,7 @@ function ProductModal({
 
               {/* Tax note */}
               <p className="text-[11px] text-stone-400 -mt-3">
-                Inclusive of all taxes.
+                Inclusive of all taxes. &bull; Enjoy hassle-free returns and exchanges within 7 days of delivery.
               </p>
 
               {/* Description */}
@@ -773,10 +773,10 @@ export default function CollectionSection() {
   // ── All filter state lives in the URL so links are shareable ─────────────
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const searchQuery  = searchParams.get("search") || "";
-  const sortBy       = searchParams.get("sort") || "recommended";
+  const searchQuery = searchParams.get("search") || "";
+  const sortBy = searchParams.get("sort") || "recommended";
   const collectionFilter = (searchParams.get("collection") || "all") as "all" | "limited";
-  const categoryFilter   = searchParams.get("category") || "";
+  const categoryFilter = searchParams.get("category") || "";
   const selectedSizes: ProductSize[] = (searchParams.get("sizes") || "")
     .split(",")
     .filter((s): s is ProductSize => (ALL_SIZES as string[]).includes(s));
@@ -1002,11 +1002,10 @@ export default function CollectionSection() {
               <button
                 key={value}
                 onClick={() => setCategory(value)}
-                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider border transition-colors ${
-                  categoryFilter === value
+                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider border transition-colors ${categoryFilter === value
                     ? "bg-[#141414] text-white border-[#141414]"
                     : "bg-white text-stone-600 border-stone-300 hover:border-black"
-                }`}
+                  }`}
               >
                 {label}
               </button>

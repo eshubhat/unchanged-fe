@@ -158,7 +158,7 @@ export default function PaymentPage() {
               <span>₹{(orderSubtotal || orderAmount).toLocaleString("en-IN")}</span>
             </div>
             <div className="flex justify-between text-stone-600">
-              <span>Processing Fee (2%)</span>
+              <span>Delivery Charges (2%)</span>
               <span>₹{Math.round((orderSubtotal || orderAmount) * 0.02).toLocaleString("en-IN")}</span>
             </div>
             <div className="flex justify-between text-emerald-600">

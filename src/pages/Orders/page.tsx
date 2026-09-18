@@ -456,8 +456,8 @@ function ReturnModal({
                     id={`return-item-${item.id}`}
                     onClick={() => toggleItem(item.id)}
                     className={`flex items-center gap-3 p-3 rounded-sm border text-left transition-all ${isSelected
-                        ? "border-stone-900 bg-stone-50 ring-1 ring-stone-900"
-                        : "border-stone-200 hover:border-stone-400"
+                      ? "border-stone-900 bg-stone-50 ring-1 ring-stone-900"
+                      : "border-stone-200 hover:border-stone-400"
                       }`}
                   >
                     {/* Checkbox */}
@@ -1026,7 +1026,7 @@ function OrderDetailDrawer({
                   )}
                   {Number(order.taxAmount) > 0 && (
                     <div style={{ display: "flex", justifyContent: "space-between", color: "#57534e" }}>
-                      <span>Processing Fee (2%)</span><span>{fmt(order.taxAmount)}</span>
+                      <span>Delivery Charges (2%)</span><span>{fmt(order.taxAmount)}</span>
                     </div>
                   )}
                   {Number(order.discountAmount) > 0 && (
@@ -1475,8 +1475,8 @@ export default function OrdersPage() {
               id="tab-orders"
               onClick={() => handleTabChange('orders')}
               className={`flex items-center gap-2 px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all -mb-px ${activeTab === 'orders'
-                  ? 'border-stone-900 text-stone-900'
-                  : 'border-transparent text-stone-400 hover:text-stone-700'
+                ? 'border-stone-900 text-stone-900'
+                : 'border-transparent text-stone-400 hover:text-stone-700'
                 }`}
             >
               <Package size={15} />
@@ -1486,8 +1486,8 @@ export default function OrdersPage() {
               id="tab-reviews"
               onClick={() => handleTabChange('reviews')}
               className={`flex items-center gap-2 px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all -mb-px ${activeTab === 'reviews'
-                  ? 'border-stone-900 text-stone-900'
-                  : 'border-transparent text-stone-400 hover:text-stone-700'
+                ? 'border-stone-900 text-stone-900'
+                : 'border-transparent text-stone-400 hover:text-stone-700'
                 }`}
             >
               <Star size={15} />
