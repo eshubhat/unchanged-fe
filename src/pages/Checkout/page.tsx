@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { getCart } from "../../utils/cart";
+import { getCart, removeFromCart, type CartItem as CartItemType } from "../../utils/cart";
 import {
   registerUser,
   loginUser,
@@ -13,7 +13,155 @@ import {
   type SavedAddress,
 } from "../../utils/api";
 import AddressManager from "../../components/AddressManager/AddressManager";
-import { ArrowLeft, Loader2, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldCheck, CheckCircle2, X, AlertTriangle, Package, Trash2, RefreshCw } from "lucide-react";
+
+// ─── Cart Issue Types ─────────────────────────────────────────────────────────
+interface CartIssueItem {
+  cartItem: CartItemType;
+  reason: "out_of_stock" | "removed";
+  available?: number;
+}
+
+// ─── Cart Issue Modal ─────────────────────────────────────────────────────────
+function CartIssueModal({
+  issues,
+  onRemoveItem,
+  onRetry,
+  onClose,
+}: {
+  issues: CartIssueItem[];
+  onRemoveItem: (item: CartItemType) => void;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+        style={{ animation: "slideUp 0.25s cubic-bezier(0.4,0,0.2,1)" }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 pb-4 border-b border-stone-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={20} className="text-amber-500" />
+            </div>
+            <div>
+              <p className="font-bold text-stone-900 text-base leading-tight">Some items need attention</p>
+              <p className="text-xs text-stone-500 mt-0.5">
+                {issues.length} item{issues.length !== 1 ? "s" : ""} in your cart {issues.length !== 1 ? "are" : "is"} no longer available
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-stone-400 hover:text-stone-700 transition-colors p-1 rounded-lg hover:bg-stone-100 flex-shrink-0"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Issue list */}
+        <div className="px-6 py-4 flex flex-col gap-3 max-h-72 overflow-y-auto">
+          {issues.map(({ cartItem, reason, available }) => (
+            <div
+              key={`${cartItem.id}-${cartItem.size}`}
+              className="flex items-center gap-3 p-3 rounded-xl border border-stone-200 bg-stone-50"
+            >
+              {/* Thumbnail */}
+              <div className="w-12 h-14 rounded-lg overflow-hidden bg-stone-200 flex-shrink-0 relative">
+                {cartItem.imageFront ? (
+                  <img
+                    src={cartItem.imageFront}
+                    alt={cartItem.title}
+                    className="w-full h-full object-cover"
+                    style={{ filter: "grayscale(0.3) brightness(0.85)" }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Package size={16} className="text-stone-400" />
+                  </div>
+                )}
+                {/* Red overlay badge */}
+                <div className="absolute inset-0 bg-red-500/10 rounded-lg" />
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-stone-800 truncate">{cartItem.title}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {cartItem.size && (
+                    <span className="text-xs text-stone-500 bg-stone-200 px-1.5 py-0.5 rounded font-medium">
+                      Size {cartItem.size}
+                    </span>
+                  )}
+                  {reason === "out_of_stock" ? (
+                    <span className="text-xs font-bold text-red-600 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+                      {available === 0 ? "Out of stock" : `Only ${available} left (you have ${cartItem.quantity})`}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-stone-500 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-stone-400 inline-block" />
+                      No longer available
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Remove button */}
+              <button
+                onClick={() => onRemoveItem(cartItem)}
+                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors border border-stone-200 hover:border-red-200"
+                title="Remove from cart"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer actions */}
+        <div className="px-6 pb-6 pt-2 flex flex-col gap-2">
+          <button
+            onClick={() => {
+              issues.forEach(({ cartItem }) => onRemoveItem(cartItem));
+            }}
+            className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold uppercase tracking-wider bg-stone-900 text-white rounded-xl hover:bg-stone-700 transition-colors"
+          >
+            <Trash2 size={15} />
+            Remove All & Retry
+          </button>
+          <button
+            onClick={onRetry}
+            className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-stone-600 border border-stone-300 rounded-xl hover:bg-stone-50 transition-colors"
+          >
+            <RefreshCw size={14} />
+            Retry with Current Cart
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full text-xs text-stone-400 hover:text-stone-600 transition-colors py-1"
+          >
+            Review cart manually
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(24px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 // ─── Google Icon ──────────────────────────────────────────────────────────────
 function GoogleIcon() {
@@ -71,7 +219,11 @@ function Step({ n, label, active, done }: { n: number; label: string; active: bo
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const cartItems = getCart();
+  const [cartItems, setCartItems] = useState(getCart());
+
+  // ── Cart issue modal state ─────────────────────────────────────────────────
+  const [cartIssues, setCartIssues] = useState<CartIssueItem[]>([]);
+  const [showCartIssueModal, setShowCartIssueModal] = useState(false);
 
   // ── Auth state ────────────────────────────────────────────────────────────
   const [loggedInUser, setLoggedInUser] = useState<UserInfo | null>(null);
@@ -96,7 +248,7 @@ export default function CheckoutPage() {
   const [loadingAddresses, setLoadingAddresses] = useState(false);
 
   const parsePrice = (p: string) => parseInt(p.replace(/[^0-9.]/g, "")) || 0;
-  const subtotal = cartItems.reduce((a, i) => a + parsePrice(i.price) * i.quantity, 0);
+
 
   // ── Check if already logged in ────────────────────────────────────────────
   useEffect(() => {
@@ -151,6 +303,61 @@ export default function CheckoutPage() {
     setAuth((p) => ({ ...p, [e.target.name]: e.target.value }));
   const handleRegAddrChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setRegAddr((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+  const parseCartErrorMessage = useCallback((message: string): CartIssueItem[] => {
+    const issues: CartIssueItem[] = [];
+    const currentCart = getCart();
+
+    // Pattern 1: "Insufficient stock for variant '${variantId}'. Available: ${n}"
+    const stockRegex = /Insufficient stock for variant '([^']+)'\. Available: (\d+)/gi;
+    let match: RegExpExecArray | null;
+    while ((match = stockRegex.exec(message)) !== null) {
+      const variantId = match[1];
+      const available = parseInt(match[2], 10);
+      const item = currentCart.find((c) => c.id === variantId);
+      if (item) issues.push({ cartItem: item, reason: "out_of_stock", available });
+    }
+
+    // Pattern 2: "Variant '${variantId}' not found" — removed/inactive product
+    const removedRegex = /[Vv]ariant '([^']+)' not found/gi;
+    while ((match = removedRegex.exec(message)) !== null) {
+      const variantId = match[1];
+      const item = currentCart.find((c) => c.id === variantId);
+      if (item) issues.push({ cartItem: item, reason: "removed" });
+    }
+
+    // Pattern 3: Generic "out of stock" anywhere in the message — flag all cart items
+    // with quantity > maxStock as out of stock (fallback heuristic)
+    if (issues.length === 0 && /out of stock|no stock|insufficient/i.test(message)) {
+      currentCart.forEach((item) => {
+        if (item.maxStock !== undefined && item.quantity > item.maxStock) {
+          issues.push({ cartItem: item, reason: "out_of_stock", available: item.maxStock });
+        }
+      });
+    }
+
+    return issues;
+  }, []);
+
+  const handleRemoveCartIssueItem = useCallback((item: CartItemType) => {
+    removeFromCart(item.id, item.size);
+    const updated = getCart();
+    setCartItems(updated);
+    setCartIssues((prev) => prev.filter(
+      (i) => !(i.cartItem.id === item.id && i.cartItem.size === item.size)
+    ));
+    if (cartIssues.length <= 1) setShowCartIssueModal(false);
+  }, [cartIssues.length]);
+
+  const handleRetryAfterModalAction = useCallback(() => {
+    setShowCartIssueModal(false);
+    setCartIssues([]);
+    // Trigger handleSubmit after a brief delay to let state settle
+    setTimeout(() => {
+      const btn = document.getElementById("checkout-submit-btn") as HTMLButtonElement | null;
+      btn?.click();
+    }, 100);
+  }, []);
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -228,7 +435,17 @@ export default function CheckoutPage() {
       navigate("/payment");
 
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+
+      // ── Detect cart item issues and show the dedicated modal ────────────
+      const issues = parseCartErrorMessage(message);
+      if (issues.length > 0) {
+        setCartIssues(issues);
+        setShowCartIssueModal(true);
+        // Don't set a generic error — the modal handles it
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -244,6 +461,9 @@ export default function CheckoutPage() {
     );
   }
 
+  // Refresh cartItems from localStorage so the summary reflects removals
+  const liveCartItems = getCart();
+  const subtotal = liveCartItems.reduce((a, i) => a + parsePrice(i.price) * i.quantity, 0);
   const isLoggedIn = !!loggedInUser;
   const hasAddresses = savedAddresses?.length > 0;
 
@@ -251,20 +471,33 @@ export default function CheckoutPage() {
     <div className="bg-white border border-stone-200 p-6 sticky top-28 rounded-sm">
       <h2 className="text-xl font-serif font-medium mb-6">Order Summary</h2>
       <div className="flex flex-col gap-4 mb-6">
-        {cartItems.map((item) => (
-          <div key={item.id} className="flex items-start gap-3">
-            <div className="w-12 h-14 bg-stone-100 flex-shrink-0 overflow-hidden">
-              <img src={item.imageFront} alt={item.title} className="w-full h-full object-cover" />
+        {liveCartItems.map((item) => {
+          const hasIssue = cartIssues.some(
+            (i) => i.cartItem.id === item.id && i.cartItem.size === item.size
+          );
+          return (
+            <div key={item.id + item.size} className={`flex items-start gap-3 ${hasIssue ? "opacity-50" : ""}`}>
+              <div className="w-12 h-14 bg-stone-100 flex-shrink-0 overflow-hidden relative">
+                <img src={item.imageFront} alt={item.title} className="w-full h-full object-cover" />
+                {hasIssue && (
+                  <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+                    <AlertTriangle size={12} className="text-red-600" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{item.title}</p>
+                <p className="text-xs text-stone-500">Qty: {item.quantity}</p>
+                {hasIssue && (
+                  <p className="text-[10px] font-bold text-red-500 mt-0.5">⚠ Issue</p>
+                )}
+              </div>
+              <span className="text-sm font-bold whitespace-nowrap">
+                ₹{parsePrice(item.price) * item.quantity}
+              </span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{item.title}</p>
-              <p className="text-xs text-stone-500">Qty: {item.quantity}</p>
-            </div>
-            <span className="text-sm font-bold whitespace-nowrap">
-              ₹{parsePrice(item.price) * item.quantity}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="border-t border-stone-200 my-4" />
       <div className="flex flex-col gap-2 mb-4 text-sm">
@@ -304,8 +537,18 @@ export default function CheckoutPage() {
     </div>
   );
 
+
   return (
     <div className="min-h-screen bg-[#fcf9f0] pt-32 pb-16 px-6 md:px-12 font-sans text-stone-900">
+      {/* Cart Issue Modal */}
+      {showCartIssueModal && cartIssues.length > 0 && (
+        <CartIssueModal
+          issues={cartIssues}
+          onRemoveItem={handleRemoveCartIssueItem}
+          onRetry={handleRetryAfterModalAction}
+          onClose={() => setShowCartIssueModal(false)}
+        />
+      )}
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-16">
 
         {/* ── Left: Form ─────────────────────────────────────────────────── */}
@@ -489,6 +732,7 @@ export default function CheckoutPage() {
 
             {/* ── Submit ────────────────────────────────────────────────── */}
             <button
+              id="checkout-submit-btn"
               type="submit"
               disabled={loading || (isLoggedIn && !loadingAddresses && !selectedAddressId && savedAddresses?.length === 0)}
               className="w-full bg-black text-white py-4 uppercase tracking-wider font-bold hover:bg-stone-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 rounded-sm"

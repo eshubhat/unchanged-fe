@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { initiatePayment, verifyPayment } from "../../utils/api";
 import { ShieldCheck, Loader2 } from "lucide-react";
@@ -47,6 +47,10 @@ export default function PaymentPage() {
   >("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Use a ref to track live status inside async callbacks (avoids stale closure)
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
+
   // Redirect if no order is pending
   useEffect(() => {
     if (!orderId) navigate("/cart");
@@ -62,7 +66,7 @@ export default function PaymentPage() {
       const loaded = await loadRazorpayScript();
       if (!loaded) throw new Error("Failed to load Razorpay SDK. Check your connection.");
 
-      // 2. Create Razorpay order via our backend
+      // 2. Create / reuse Razorpay order via our backend
       const paymentData = await initiatePayment(orderId);
 
       // 3. Open Razorpay checkout modal
@@ -108,6 +112,8 @@ export default function PaymentPage() {
 
           modal: {
             ondismiss: () => {
+              // User closed the modal — let the catch block set "error",
+              // then finally resets to "idle" so the button is re-enabled.
               reject(new Error("Payment was cancelled."));
             },
           },
@@ -130,7 +136,11 @@ export default function PaymentPage() {
         err instanceof Error ? err.message : "Something went wrong. Please try again."
       );
     } finally {
-      if (status !== "verifying") setStatus("idle");
+      // Use the ref so we read the LIVE status, not the stale closure value.
+      // Only reset to idle if we are not in the middle of verifying a successful payment.
+      if (statusRef.current !== "verifying") {
+        setStatus("idle");
+      }
     }
   };
 
