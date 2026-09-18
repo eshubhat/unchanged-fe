@@ -24,8 +24,8 @@ export default function Footer() {
           <div className="flex flex-col gap-6 lg:ml-8">
             <h3 className="font-extrabold uppercase">Service</h3>
             <ul className="flex flex-col gap-4 text-sm text-stone-600">
-              <li><a href="#" className="hover:text-black font-light transition-colors hover:underline!" title="Shipping Information">Shipping Information</a></li>
-              <li><a href="#" className="hover:text-black font-light transition-colors hover:underline!" title="Returns & Exchanges">Returns & Exchanges</a></li>
+              <li><a href="/faq" className="hover:text-black font-light transition-colors hover:underline!" title="Shipping Information">Shipping Information</a></li>
+              <li><a href="/faq" className="hover:text-black font-light transition-colors hover:underline!" title="Returns & Exchanges">Returns & Exchanges</a></li>
               {/* <li>
                 <button
                   onClick={() => setSizeGuideOpen(true)}
