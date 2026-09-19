@@ -16,12 +16,32 @@ export default function FAQPage() {
       answer: "At The Unchanged, we want you to love what you wear. If you're not completely satisfied with your purchase, you may request a return or exchange within 7 days of delivery.\n\nTo be eligible, the product must be unused, unworn, unwashed, and returned in its original condition with all tags and packaging intact."
     },
     {
-      question: "How should I care for my Unchanged garments to maximize their longevity?",
-      answer: "We build our garments with structural integrity as the primary focus, utilizing heavy-weight cottons and durable construction methods. To maintain this integrity, we recommend washing in cold water with similar colors and hanging to dry. Avoid high-heat tumble drying, as it can compromise both the fabric structure and the precise fit of the garment over time."
+      question: "What is The Unchanged?",
+      answer: "The Unchanged is an apparel brand focused on bringing premium-quality, stylish and comfortable oversized T-shirts for men and women at affordable prices."
     },
     {
-      question: "Do you restock archival releases or limited pieces?",
-      answer: "We reject the fast-fashion cycle of endless restocking. Once an archival release is complete, we rarely reproduce it in its exact form. We believe in creating pieces that stand the test of time—if you acquire a piece, it is meant to remain with you. We focus on our core structural pieces while occasionally introducing new, meticulously engineered silhouettes."
+      question: "What material are your T-shirts made from?",
+      answer: "Our T-shirts are crafted from 100% premium cotton, offering a super-soft feel, breathability and all-day comfort."
+    },
+    {
+      question: "What is the GSM of your T-shirts?",
+      answer: "Our oversized T-shirts are made from 230 GSM premium cotton, giving them a substantial feel while maintaining comfort."
+    },
+    {
+      question: "How do I choose the right size?",
+      answer: "We recommend referring to the size chart available on each product page before placing your order. Since our T-shirts have an oversized fit, please check the measurements to find your preferred fit."
+    },
+    {
+      question: "How should I wash and care for my T-shirt?",
+      answer: "For best results, wash your T-shirt inside out using cold water and mild detergent. Avoid bleach and ironing directly over the printed design."
+    },
+    {
+      question: "Can I change my delivery address after placing an order?",
+      answer: "Please contact our customer support team as soon as possible if you need to change your delivery address. Address changes may not be possible once your order has been dispatched."
+    },
+    {
+      question: "Can I modify my order after placing it?",
+      answer: "If you need to change your size, design or delivery details, please contact our customer support team as soon as possible. Modifications are subject to the status of your order."
     }
   ];
 
