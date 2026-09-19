@@ -12,6 +12,10 @@ export default function FAQPage() {
 
   const faqs = [
     {
+      question: "What is your return and exchange policy?",
+      answer: "At The Unchanged, we want you to love what you wear. If you're not completely satisfied with your purchase, you may request a return or exchange within 7 days of delivery.\n\nTo be eligible, the product must be unused, unworn, unwashed, and returned in its original condition with all tags and packaging intact."
+    },
+    {
       question: "How should I care for my Unchanged garments to maximize their longevity?",
       answer: "We build our garments with structural integrity as the primary focus, utilizing heavy-weight cottons and durable construction methods. To maintain this integrity, we recommend washing in cold water with similar colors and hanging to dry. Avoid high-heat tumble drying, as it can compromise both the fabric structure and the precise fit of the garment over time."
     },
@@ -61,7 +65,7 @@ export default function FAQPage() {
                     isOpen ? "max-h-96 opacity-100 pb-10" : "max-h-0 opacity-0"
                   }`}
                 >
-                  <p className="text-lg text-stone-600 leading-relaxed pr-8 md:pr-12">
+                  <p className="text-lg text-stone-600 leading-relaxed pr-8 md:pr-12 whitespace-pre-line">
                     {faq.answer}
                   </p>
                 </div>
