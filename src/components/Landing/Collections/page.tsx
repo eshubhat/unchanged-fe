@@ -519,7 +519,7 @@ function ProductModal({
               </div>
 
               {/* Tax note */}
-              <p className="text-[11px] text-stone-400 -mt-3">
+              <p className="text-lg text-stone-400 -mt-3">
                 Inclusive of all taxes. &bull; Enjoy hassle-free returns and exchanges within 7 days of delivery.
               </p>
 
@@ -1003,8 +1003,8 @@ export default function CollectionSection() {
                 key={value}
                 onClick={() => setCategory(value)}
                 className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider border transition-colors ${categoryFilter === value
-                    ? "bg-[#141414] text-white border-[#141414]"
-                    : "bg-white text-stone-600 border-stone-300 hover:border-black"
+                  ? "bg-[#141414] text-white border-[#141414]"
+                  : "bg-white text-stone-600 border-stone-300 hover:border-black"
                   }`}
               >
                 {label}
